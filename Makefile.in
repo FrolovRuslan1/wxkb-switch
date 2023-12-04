@@ -105,7 +105,9 @@ CONFIG_CLEAN_VPATH_FILES =
 am__installdirs = "$(DESTDIR)$(bindir)" "$(DESTDIR)$(man1dir)"
 PROGRAMS = $(bin_PROGRAMS)
 am__dirstamp = $(am__leading_dot)dirstamp
-am_wxkb_switch_OBJECTS = src/wxkb_switch-main.$(OBJEXT)
+am_wxkb_switch_OBJECTS = src/wxkb_switch-main.$(OBJEXT) \
+	src/wxkb_switch-xdg-shell-protocol.$(OBJEXT) \
+	src/wxkb_switch-shm.$(OBJEXT)
 wxkb_switch_OBJECTS = $(am_wxkb_switch_OBJECTS)
 am__DEPENDENCIES_1 =
 wxkb_switch_DEPENDENCIES = $(am__DEPENDENCIES_1)
@@ -126,7 +128,9 @@ am__v_at_1 =
 DEFAULT_INCLUDES = -I.@am__isrc@ -I$(top_builddir)/include
 depcomp = $(SHELL) $(top_srcdir)/depcomp
 am__maybe_remake_depfiles = depfiles
-am__depfiles_remade = src/$(DEPDIR)/wxkb_switch-main.Po
+am__depfiles_remade = src/$(DEPDIR)/wxkb_switch-main.Po \
+	src/$(DEPDIR)/wxkb_switch-shm.Po \
+	src/$(DEPDIR)/wxkb_switch-xdg-shell-protocol.Po
 am__mv = mv -f
 AM_V_lt = $(am__v_lt_@AM_V@)
 am__v_lt_ = $(am__v_lt_@AM_DEFAULT_V@)
@@ -329,7 +333,7 @@ target_alias = @target_alias@
 top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
-wxkb_switch_SOURCES = src/main.c
+wxkb_switch_SOURCES = src/main.c src/xdg-shell-protocol.c src/shm.c
 wxkb_switch_CFLAGS = $(DEPS_CFLAGS)
 wxkb_switch_LDADD = $(DEPS_LIBS)
 
@@ -340,7 +344,7 @@ wxkb_switch_LDADD = $(DEPS_LIBS)
 # EXTRA_DIST += scripts/input-device-info.sh.in
 
 # CLEANFILES = $(bin_SCRIPTS)
-man1_MANS = doc/wxkb-switch.1
+man1_MANS = doc/wxkb_switch.1
 all: all-am
 
 .SUFFIXES:
@@ -447,6 +451,10 @@ src/$(DEPDIR)/$(am__dirstamp):
 	@: > src/$(DEPDIR)/$(am__dirstamp)
 src/wxkb_switch-main.$(OBJEXT): src/$(am__dirstamp) \
 	src/$(DEPDIR)/$(am__dirstamp)
+src/wxkb_switch-xdg-shell-protocol.$(OBJEXT): src/$(am__dirstamp) \
+	src/$(DEPDIR)/$(am__dirstamp)
+src/wxkb_switch-shm.$(OBJEXT): src/$(am__dirstamp) \
+	src/$(DEPDIR)/$(am__dirstamp)
 
 wxkb_switch$(EXEEXT): $(wxkb_switch_OBJECTS) $(wxkb_switch_DEPENDENCIES) $(EXTRA_wxkb_switch_DEPENDENCIES) 
 	@rm -f wxkb_switch$(EXEEXT)
@@ -460,6 +468,8 @@ distclean-compile:
 	-rm -f *.tab.c
 
 @AMDEP_TRUE@@am__include@ @am__quote@src/$(DEPDIR)/wxkb_switch-main.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@src/$(DEPDIR)/wxkb_switch-shm.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@src/$(DEPDIR)/wxkb_switch-xdg-shell-protocol.Po@am__quote@ # am--include-marker
 
 $(am__depfiles_remade):
 	@$(MKDIR_P) $(@D)
@@ -496,6 +506,34 @@ src/wxkb_switch-main.obj: src/main.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='src/main.c' object='src/wxkb_switch-main.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(wxkb_switch_CFLAGS) $(CFLAGS) -c -o src/wxkb_switch-main.obj `if test -f 'src/main.c'; then $(CYGPATH_W) 'src/main.c'; else $(CYGPATH_W) '$(srcdir)/src/main.c'; fi`
+
+src/wxkb_switch-xdg-shell-protocol.o: src/xdg-shell-protocol.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(wxkb_switch_CFLAGS) $(CFLAGS) -MT src/wxkb_switch-xdg-shell-protocol.o -MD -MP -MF src/$(DEPDIR)/wxkb_switch-xdg-shell-protocol.Tpo -c -o src/wxkb_switch-xdg-shell-protocol.o `test -f 'src/xdg-shell-protocol.c' || echo '$(srcdir)/'`src/xdg-shell-protocol.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) src/$(DEPDIR)/wxkb_switch-xdg-shell-protocol.Tpo src/$(DEPDIR)/wxkb_switch-xdg-shell-protocol.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='src/xdg-shell-protocol.c' object='src/wxkb_switch-xdg-shell-protocol.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(wxkb_switch_CFLAGS) $(CFLAGS) -c -o src/wxkb_switch-xdg-shell-protocol.o `test -f 'src/xdg-shell-protocol.c' || echo '$(srcdir)/'`src/xdg-shell-protocol.c
+
+src/wxkb_switch-xdg-shell-protocol.obj: src/xdg-shell-protocol.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(wxkb_switch_CFLAGS) $(CFLAGS) -MT src/wxkb_switch-xdg-shell-protocol.obj -MD -MP -MF src/$(DEPDIR)/wxkb_switch-xdg-shell-protocol.Tpo -c -o src/wxkb_switch-xdg-shell-protocol.obj `if test -f 'src/xdg-shell-protocol.c'; then $(CYGPATH_W) 'src/xdg-shell-protocol.c'; else $(CYGPATH_W) '$(srcdir)/src/xdg-shell-protocol.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) src/$(DEPDIR)/wxkb_switch-xdg-shell-protocol.Tpo src/$(DEPDIR)/wxkb_switch-xdg-shell-protocol.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='src/xdg-shell-protocol.c' object='src/wxkb_switch-xdg-shell-protocol.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(wxkb_switch_CFLAGS) $(CFLAGS) -c -o src/wxkb_switch-xdg-shell-protocol.obj `if test -f 'src/xdg-shell-protocol.c'; then $(CYGPATH_W) 'src/xdg-shell-protocol.c'; else $(CYGPATH_W) '$(srcdir)/src/xdg-shell-protocol.c'; fi`
+
+src/wxkb_switch-shm.o: src/shm.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(wxkb_switch_CFLAGS) $(CFLAGS) -MT src/wxkb_switch-shm.o -MD -MP -MF src/$(DEPDIR)/wxkb_switch-shm.Tpo -c -o src/wxkb_switch-shm.o `test -f 'src/shm.c' || echo '$(srcdir)/'`src/shm.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) src/$(DEPDIR)/wxkb_switch-shm.Tpo src/$(DEPDIR)/wxkb_switch-shm.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='src/shm.c' object='src/wxkb_switch-shm.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(wxkb_switch_CFLAGS) $(CFLAGS) -c -o src/wxkb_switch-shm.o `test -f 'src/shm.c' || echo '$(srcdir)/'`src/shm.c
+
+src/wxkb_switch-shm.obj: src/shm.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(wxkb_switch_CFLAGS) $(CFLAGS) -MT src/wxkb_switch-shm.obj -MD -MP -MF src/$(DEPDIR)/wxkb_switch-shm.Tpo -c -o src/wxkb_switch-shm.obj `if test -f 'src/shm.c'; then $(CYGPATH_W) 'src/shm.c'; else $(CYGPATH_W) '$(srcdir)/src/shm.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) src/$(DEPDIR)/wxkb_switch-shm.Tpo src/$(DEPDIR)/wxkb_switch-shm.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='src/shm.c' object='src/wxkb_switch-shm.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(wxkb_switch_CFLAGS) $(CFLAGS) -c -o src/wxkb_switch-shm.obj `if test -f 'src/shm.c'; then $(CYGPATH_W) 'src/shm.c'; else $(CYGPATH_W) '$(srcdir)/src/shm.c'; fi`
 install-man1: $(man1_MANS)
 	@$(NORMAL_INSTALL)
 	@list1='$(man1_MANS)'; \
@@ -814,6 +852,8 @@ clean-am: clean-binPROGRAMS clean-generic mostlyclean-am
 distclean: distclean-am
 	-rm -f $(am__CONFIG_DISTCLEAN_FILES)
 		-rm -f src/$(DEPDIR)/wxkb_switch-main.Po
+	-rm -f src/$(DEPDIR)/wxkb_switch-shm.Po
+	-rm -f src/$(DEPDIR)/wxkb_switch-xdg-shell-protocol.Po
 	-rm -f Makefile
 distclean-am: clean-am distclean-compile distclean-generic \
 	distclean-hdr distclean-tags
@@ -862,6 +902,8 @@ maintainer-clean: maintainer-clean-am
 	-rm -f $(am__CONFIG_DISTCLEAN_FILES)
 	-rm -rf $(top_srcdir)/autom4te.cache
 		-rm -f src/$(DEPDIR)/wxkb_switch-main.Po
+	-rm -f src/$(DEPDIR)/wxkb_switch-shm.Po
+	-rm -f src/$(DEPDIR)/wxkb_switch-xdg-shell-protocol.Po
 	-rm -f Makefile
 maintainer-clean-am: distclean-am maintainer-clean-generic
 

@@ -2,7 +2,7 @@ VERSION = @PACKAGE_VERSION@
 # wxkb_switch_LOCAL_INSTALL = 0
 
 bin_PROGRAMS = wxkb_switch
-wxkb_switch_SOURCES = src/main.c
+wxkb_switch_SOURCES = src/main.c src/xdg-shell-protocol.c src/shm.c
 
 
 wxkb_switch_CFLAGS = $(DEPS_CFLAGS)
@@ -16,7 +16,7 @@ wxkb_switch_LDADD = $(DEPS_LIBS)
 
 # CLEANFILES = $(bin_SCRIPTS)
 
-man1_MANS = doc/wxkb-switch.1
+man1_MANS = doc/wxkb_switch.1
 
 
 # EXTRA_DIST += xkb-switch

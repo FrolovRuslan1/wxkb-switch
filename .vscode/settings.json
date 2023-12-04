@@ -1,0 +1,19 @@
+{
+	"files.associations": {
+		"xkbcommon.h": "c",
+		"wayland-client.h": "c",
+		"wlr_cursor.h": "c",
+		"wlr_output_layout.h": "c",
+		"wlr_output.h": "c",
+		"wlr_input_device.h": "c",
+		"allocator.h": "c",
+		"backend.h": "c",
+		"wayland-client-core.h": "c",
+		"limits.h": "c",
+		"wayland-util.h": "c",
+		"array": "c",
+		"string": "c",
+		"string_view": "c",
+		"xkbcommon-keysyms.h": "c"
+	}
+}

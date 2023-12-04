@@ -18,7 +18,7 @@ AC_PROG_RANLIB
 
 
 # Checks for libraries.
-PKG_CHECK_MODULES(DEPS, x11 xkbcommon libconfig)
+PKG_CHECK_MODULES(DEPS, x11 xkbcommon wayland-client wayland-server wayland-protocols wlroots libconfig)
 
 # Checks for header files.
 AC_PATH_X
