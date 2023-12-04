@@ -94,7 +94,7 @@ static int list_layouts(struct xkb_keymap *keymap)
 
 static void wl_keyboard_keymap(void *data, struct wl_keyboard *wl_keyboard, uint32_t format, int32_t fd, uint32_t size) 
 {
-	puts("wl_keyboard_keymap() !!!");
+	// puts("wl_keyboard_keymap() !!!");
 	struct wxkb_switch_state *state = data;
 
 	char *map_shm = mmap(NULL, size, PROT_READ, MAP_PRIVATE, fd, 0);
@@ -117,6 +117,8 @@ static void wl_keyboard_keymap(void *data, struct wl_keyboard *wl_keyboard, uint
 	munmap(map_shm, size);
 	close(fd);
 
+	// list ru and us keyboard layouts
+	puts("It prints keyboard layout via xkbcommon and wayland");
 	list_layouts(state->keymap);
 
 
@@ -199,7 +201,7 @@ static void registry_global(void *data, struct wl_registry *wl_registry, uint32_
 	
 	if (strcmp(interface, "wl_seat") == 0)
 	{
-		printf("name: %d\ninterface: %s\nversion: %d\n", name, interface, version);
+		// printf("name: %d\ninterface: %s\nversion: %d\n", name, interface, version);
 		state->seat = wl_registry_bind(state->registry, name, &wl_seat_interface, version);
 	}
 	
@@ -223,6 +225,20 @@ int main(int argc, char const *argv[])
 {
 	struct wxkb_switch_state state;
 
+	
+
+	state.context = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
+
+	state.keymap = xkb_keymap_new_from_names(state.context, NULL, XKB_KEYMAP_COMPILE_NO_FLAGS);
+	if (state.keymap == NULL)
+	{
+		debug("xkb_keymap_new_from_names");
+		return -1;
+	}
+	puts("It prints keyboard layout only via xkbcommon");
+	list_layouts(state.keymap);
+
+
 	state.display = wl_display_connect(NULL);
 	if (!state.display) {
 		fprintf(stderr, "Failed to connect to Wayland display\n");
@@ -233,8 +249,6 @@ int main(int argc, char const *argv[])
 		fprintf(stderr, "Failed to obtain Wayland registry\n");
 		return 1;
 	}
-
-	state.context = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
 
 	wl_registry_add_listener(state.registry, &registry_listener, &state);
 	wl_display_roundtrip(state.display);
