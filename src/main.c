@@ -119,18 +119,16 @@ static void wl_keyboard_keymap(void *data, struct wl_keyboard *wl_keyboard, uint
 
 	list_layouts(state->keymap);
 
-	// Получение текущих состояний модификаторов клавиатуры
-	xkb_mod_mask_t depressed_mods = xkb_state_serialize_mods(state, XKB_STATE_MODS_DEPRESSED);
-	xkb_mod_mask_t latched_mods = xkb_state_serialize_mods(state, XKB_STATE_MODS_LATCHED);
-	xkb_mod_mask_t locked_mods = xkb_state_serialize_mods(state, XKB_STATE_MODS_LOCKED);
 
-	// Получение текущих состояний раскладки клавиатуры
-	xkb_layout_index_t depressed_layout = xkb_state_serialize_layout(state, XKB_STATE_LAYOUT_DEPRESSED);
-	xkb_layout_index_t latched_layout = xkb_state_serialize_layout(state, XKB_STATE_LAYOUT_LATCHED);
-	xkb_layout_index_t locked_layout = xkb_state_serialize_layout(state, XKB_STATE_LAYOUT_LOCKED);
+	// xkb_mod_mask_t depressed_mods = xkb_state_serialize_mods(state, XKB_STATE_MODS_DEPRESSED);
+	// xkb_mod_mask_t latched_mods = xkb_state_serialize_mods(state, XKB_STATE_MODS_LATCHED);
+	// xkb_mod_mask_t locked_mods = xkb_state_serialize_mods(state, XKB_STATE_MODS_LOCKED);
 
-	// Изменение только раскладки клавиатуры
-	xkb_state_update_mask(state, depressed_mods, latched_mods, locked_mods, 1, latched_layout, locked_layout);
+	// xkb_layout_index_t depressed_layout = xkb_state_serialize_layout(state, XKB_STATE_LAYOUT_DEPRESSED);
+	// xkb_layout_index_t latched_layout = xkb_state_serialize_layout(state, XKB_STATE_LAYOUT_LATCHED);
+	// xkb_layout_index_t locked_layout = xkb_state_serialize_layout(state, XKB_STATE_LAYOUT_LOCKED);
+
+	// xkb_state_update_mask(state, depressed_mods, latched_mods, locked_mods, 1, latched_layout, locked_layout);
 
 
 }
