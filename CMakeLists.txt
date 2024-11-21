@@ -85,6 +85,9 @@ INSTALL(FILES scripts/_wxkb_switch
 INSTALL(FILES scripts/wxkb_switch.fish
         DESTINATION /usr/share/fish/vendor_completions.d)
 
+install(FILES man/wxkb_switch.1
+        DESTINATION share/man/man1)
+
 
 # SET(MAN_COMPRESSION "gzip" CACHE STRING "Manpages compression tool")
 # SET(MANDIR "${CMAKE_INSTALL_PREFIX}/share/man" CACHE STRING "Manpages installation path")
