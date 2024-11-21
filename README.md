@@ -19,7 +19,7 @@ make
 sudo make install
 ```
 #### Using .deb
-`wget https://github.com/FrolovRuslan1/wxkb_switch/releases/download/1.0.0/wxkb_switcher-0.0.-Linux.deb`
+`wget https://github.com/FrolovRuslan1/wxkb_switch/releases/download/1.0.0/wxkb_switcher-1.0.0-Linux.deb`
 
 `sudo apt install ./wxkb_switcher-0.0.-Linux.deb`
 
