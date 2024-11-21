@@ -10,34 +10,23 @@ ADD_DEFINITIONS(-DWXKBSWITCH_VERSION="${WXKBSWITCH_VERSION}")
 # Check pkg-config 
 find_package(PkgConfig)
 if(NOT PKG_CONFIG_FOUND)
-    message(FATAL_ERROR "pkg-config not found, please install 'pkg-config' or check it existing.")
+  message(FATAL_ERROR "pkg-config not found, please install 'pkg-config' or check it existing.")
 endif()
 
 # Check presence of development libraries required for build
 pkg_check_modules(X11           REQUIRED  IMPORTED_TARGET x11)
 pkg_check_modules(XKBFILE       REQUIRED  IMPORTED_TARGET xkbfile)
-pkg_check_modules(XKBCOMMON     REQUIRED  IMPORTED_TARGET xkbcommon)
 pkg_check_modules(XKBCOMMON_X11 REQUIRED  IMPORTED_TARGET xkbcommon-x11)
 pkg_check_modules(XCB           REQUIRED  IMPORTED_TARGET xcb)
-pkg_check_modules(XKBREGISTRY   REQUIRED  IMPORTED_TARGET xkbregistry)
-
-# Handle error: library not found
-if(NOT X11_FOUND)
-    MESSAGE(FATAL_ERROR "Not found development files of 'libx11' required for build. (Install libx11-dev or libx11-devel package.) CMake will exit.")
-endif()
-if(NOT XKBCOMMON_X11_FOUND)
-    MESSAGE(FATAL_ERROR "Not found development files of 'libxkbcommon-x11' required for build. CMake will exit.")
-endif()
-if(NOT XCB_FOUND)
-    MESSAGE(FATAL_ERROR "Not found development files of 'libxcb' required for build. CMake will exit.")
-endif()
 
 # Compile and link program
 include_directories(${X11_INCLUDE_DIR})
+include_directories(${XKBFILE_INCLUDE_DIR})
 include_directories(${XKBCOMMON_X11_INCLUDE_DIRS})
 include_directories(${XCB_INCLUDE_DIRS})
 
 link_directories(${X11_LIBRARY_DIR})
+link_directories(${XKBFILE_LIBRARY_DIR})
 link_directories(${XKBCOMMON_X11_LIBRARY_DIRS})
 link_directories(${XCB_LIBRARY_DIRS})
 
@@ -48,11 +37,12 @@ file(GLOB ALL_SRCS
 add_executable(wxkb_switch ${ALL_SRCS})
 set_target_properties(wxkb_switch PROPERTIES VERSION WXKBSWITCH_VERSION)
 set(external_libs PkgConfig::X11 
+                  PkgConfig::XKBFILE 
                   PkgConfig::XKBCOMMON_X11 
                   PkgConfig::XCB)
 target_link_libraries(wxkb_switch ${external_libs})
 
-# Install program
+# Install program and necessary files
 INSTALL(TARGETS wxkb_switch
         RUNTIME DESTINATION bin)
 
@@ -70,11 +60,10 @@ install(FILES man/wxkb_switch.1
 
 # make uninstall
 add_custom_target("uninstall" COMMENT "Uninstall installed files")
-add_custom_command(
-    TARGET "uninstall"
-    POST_BUILD
-    COMMENT "Uninstall files with install_manifest.txt"
-    COMMAND xargs rm -vf < install_manifest.txt || echo Nothing in install_manifest.txt to be uninstalled!)
+add_custom_command( TARGET "uninstall"
+                    POST_BUILD
+                    COMMENT "Uninstall files with install_manifest.txt"
+                    COMMAND xargs rm -vf < install_manifest.txt || echo Nothing in install_manifest.txt to be uninstalled!)
 
 # cpack deb package
 set(CPACK_PACKAGE_NAME "wxkb_switcher")
@@ -82,8 +71,7 @@ set(CPACK_PACKAGE_VERSION ${WXKBSWITCH_VERSION})
 set(CPACK_DEBIAN_PACKAGE_MAINTAINER "Frolov Ruslan Victorovich <gald.rus@yandex.ru>")
 set(CPACK_DEBIAN_PACKAGE_SECTION "utils")
 set(CPACK_DEBIAN_PACKAGE_DESCRIPTION "Utility for switching keyboard layouts under Wayland window system.")
-set(CPACK_DEBIAN_PACKAGE_DEPENDS "libc6, libx11-6, libxkbcommon-x11-0, libxcb1")
-set(CPACK_DEBIAN_PACKAGE_ARCHITECTURE amd64)
+set(CPACK_DEBIAN_PACKAGE_DEPENDS "libc6, libx11-6, libxkbcommon-x11-0, libxkbfile1, libxcb1")
 set(CPACK_DEBIAN_PACKAGE_HOMEPAGE https://github.com/FrolovRuslan1/wxkb_switch)
 
 include(CPack)

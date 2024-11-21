@@ -21,7 +21,6 @@
 #include <X11/XKBlib.h>
 #include <X11/extensions/XKBrules.h>
 
-#include <xkbcommon/xkbcommon.h>
 #include <xkbcommon/xkbcommon-x11.h>
 
 int32_t
