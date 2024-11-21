@@ -10,7 +10,7 @@ sudo apt install libx11-dev libxkbcommon-x11-dev libxkbfile-dev libxcb1-dev; git
 ```
 OR
 ```
-sudo apt install libx11-dev libxkbcommon-x11-dev libxkbfile-dev libxcb1-dev
+sudo apt install pkg-config libx11-dev libxkbcommon-x11-dev libxkbfile-dev libxcb1-dev
 git clone https://github.com/FrolovRuslan1/wxkb_switch.git 
 cd wxkb_switch
 mkdir build
@@ -32,7 +32,7 @@ sudo apt install libx11-dev libxkbcommon-x11-dev libxkbfile-dev libxcb1-dev; git
 ```
 OR
 ```
-sudo apt install libx11-dev libxkbcommon-x11-dev libxkbfile-dev libxcb1-dev
+sudo apt install pkg-config libx11-dev libxkbcommon-x11-dev libxkbfile-dev libxcb1-dev
 git clone https://github.com/FrolovRuslan1/wxkb_switch.git 
 cd wxkb_switch
 mkdir build
