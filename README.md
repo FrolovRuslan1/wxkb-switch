@@ -6,15 +6,16 @@ wxkb_switch - Utility for switching keyboard layouts under Wayland window system
 #### Local install
 To install local use:
 ```
-git clone https://github.com/FrolovRuslan1/wxkb_switch.git; cd wxkb_switch; mkdir build; cd build; cmake; make; sudo make install
+sudo apt install libx11-dev libxkbcommon-x11-dev libxkbfile-dev libxcb1-dev; git clone https://github.com/FrolovRuslan1/wxkb_switch.git; cd wxkb_switch; mkdir build; cd build; cmake; make; sudo make install
 ```
 OR
 ```
+sudo apt install libx11-dev libxkbcommon-x11-dev libxkbfile-dev libxcb1-dev
 git clone https://github.com/FrolovRuslan1/wxkb_switch.git 
 cd wxkb_switch
 mkdir build
 cd build
-cmake
+cmake ..
 make
 sudo make install
 ```
@@ -27,10 +28,11 @@ sudo make install
 #### Local
 To install local use:
 ```
-git clone https://github.com/FrolovRuslan1/wxkb_switch.git; cd wxkb_switch; mkdir build; cd build; cmake; make; sudo make install; sudo make uninstall
+sudo apt install libx11-dev libxkbcommon-x11-dev libxkbfile-dev libxcb1-dev; git clone https://github.com/FrolovRuslan1/wxkb_switch.git; cd wxkb_switch; mkdir build; cd build; cmake; make; sudo make install; sudo make uninstall
 ```
 OR
 ```
+sudo apt install libx11-dev libxkbcommon-x11-dev libxkbfile-dev libxcb1-dev
 git clone https://github.com/FrolovRuslan1/wxkb_switch.git 
 cd wxkb_switch
 mkdir build
