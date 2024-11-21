@@ -195,8 +195,7 @@ options_handler(int32_t     argc,
       
       case 'v':
       {
-        puts("1.0.0");
-        // debug_msg("%s\n", VERSION);
+        puts(WXKBSWITCH_VERSION);
       }
       break;
       
@@ -229,7 +228,7 @@ options_handler(int32_t     argc,
 int32_t
 xkb_groups_lock_next(void)
 {
-  char* displayName = strdup(""); // allocates memory for string!
+  char* displayName = "";
   int eventCode;
   int errorReturn;
   int major = XkbMajorVersion;
@@ -323,9 +322,11 @@ xkb_groups_lock_next(void)
   debug_msg("state_return->latched_group:  %d\n",  state_return.latched_group);
   debug_msgnl("")
 
-  if (state_return.group >= num_layouts_x11)
+  // if next layout index more then MAX layout index 
+  if (state_return.locked_group+1 > (num_layouts_x11-1))
   {
-    if (XkbLockGroup(display, XkbUseCoreKbd, 0) 
+    // sets first layout
+    if (XkbLockGroup(display, XkbUseCoreKbd, 0)
     !=  True)
     {
       debug_msgnl("XkbLockGroup() error occurred")
@@ -334,6 +335,7 @@ xkb_groups_lock_next(void)
   }
   else
   {
+    // sets next layout
 	  if (XkbLockGroup(display, XkbUseCoreKbd, state_return.group+1) 
     !=  True)
     {
@@ -364,7 +366,7 @@ xkb_groups_lock_next(void)
 int32_t
 xkb_groups_lock_prev(void)
 {
-  char* displayName = strdup(""); // allocates memory for string!
+  char* displayName = "";
   int eventCode;
   int errorReturn;
   int major = XkbMajorVersion;
@@ -458,8 +460,10 @@ xkb_groups_lock_prev(void)
   debug_msg("state_return->latched_group:  %d\n",  state_return.latched_group);
   debug_msgnl("")
 
-  if (state_return.group <= 0)
+  // if prev layout index less then MIN layout index (0)
+  if (state_return.locked_group-1 < 0)
   {
+    // sets last layout
     if (XkbLockGroup(display, XkbUseCoreKbd, num_layouts_x11-1) 
     !=  True)
     {
@@ -469,6 +473,7 @@ xkb_groups_lock_prev(void)
   }
   else
   {
+    // sets previos layout
 	  if (XkbLockGroup(display, XkbUseCoreKbd, 0) 
     !=  True)
     {
@@ -591,7 +596,7 @@ xkb_groups_list(void)
 	for (xkb_layout_index_t i = 0; i < num_layouts_x11; i++)
 	{
 		printf("index: %d layout name: %s", i, xkb_keymap_layout_get_name(x11_keymap, i)); 
-    if (i == state_return.group)
+    if (i == state_return.locked_group)
     {
       printf(" <---current layout\n");
     }
