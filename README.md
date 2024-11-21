@@ -1,4 +1,4 @@
-### wxkb_switch
+# wxkb_switch
 wxkb_switch - Utility for switching keyboard layouts under Wayland window system.
 
 ### Installing 
