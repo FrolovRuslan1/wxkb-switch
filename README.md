@@ -19,7 +19,8 @@ make
 sudo make install
 ```
 #### Using .deb
-Download package
+`wget https://github.com/FrolovRuslan1/wxkb_switch/releases/download/1.0.0/wxkb_switcher-0.0.-Linux.deb`
+
 `sudo apt install ./wxkb_switcher-0.0.-Linux.deb`
 
 ### Unistalling
