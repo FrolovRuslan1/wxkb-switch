@@ -73,8 +73,8 @@ main( int32_t     argc,
 /*!
 * @brief process program options
 *
-* This function process program options
-* 
+* This function process program options and calls handlers
+* Implicit uses debug_flag
 * @param argc[in] Count of arguments.
 * @param argv[in] pointer to arguments array of strings.
 * @return 0 if Ok and -1 if error
@@ -224,15 +224,24 @@ options_handler(int32_t     argc,
 	return 0;
 }
 
+/*!
+* @brief set layout to next
+*
+* This function sets keyboard group to next
+* if next is more then max group index
+* then group sets to first group index i.e. 0
+* Implicit uses debug_flag
+* @return 0 if Ok and -1 if error
+*/
 int32_t
 xkb_groups_lock_next(void)
 {
   char* displayName = "";
-  int eventCode;
-  int errorReturn;
-  int major = XkbMajorVersion;
-  int minor = XkbMinorVersion;
-  int reasonReturn;
+  int32_t eventCode;
+  int32_t errorReturn;
+  int32_t major = XkbMajorVersion;
+  int32_t minor = XkbMinorVersion;
+  int32_t reasonReturn;
 
 
   Display* display = XkbOpenDisplay(displayName, 
@@ -275,14 +284,15 @@ xkb_groups_lock_next(void)
 	uint8_t base_event_out;
 	uint8_t base_error_out;
 
-	int ret = xkb_x11_setup_xkb_extension(connection,
-                                        XKB_X11_MIN_MAJOR_XKB_VERSION,
-                                        XKB_X11_MIN_MINOR_XKB_VERSION,
-                                        XKB_X11_SETUP_XKB_EXTENSION_NO_FLAGS,
-                                        &major_xkb_version_out,
-                                        &minor_xkb_version_out,
-                                        &base_event_out,
-                                        &base_error_out);
+	int32_t ret 
+  = xkb_x11_setup_xkb_extension(connection,
+                                XKB_X11_MIN_MAJOR_XKB_VERSION,
+                                XKB_X11_MIN_MINOR_XKB_VERSION,
+                                XKB_X11_SETUP_XKB_EXTENSION_NO_FLAGS,
+                                &major_xkb_version_out,
+                                &minor_xkb_version_out,
+                                &base_event_out,
+                                &base_error_out);
 
 	int32_t core_keyboard_device_id = xkb_x11_get_core_keyboard_device_id(connection);
 
@@ -362,15 +372,24 @@ xkb_groups_lock_next(void)
   return 0;
 }
 
+/*!
+* @brief set layout to next
+*
+* This function sets keyboard group to previos
+* if previos is less then min group index
+* then group sets to last group index i.e. 0
+* Implicit uses debug_flag
+* @return 0 if Ok and -1 if error
+*/
 int32_t
 xkb_groups_lock_prev(void)
 {
   char* displayName = "";
-  int eventCode;
-  int errorReturn;
-  int major = XkbMajorVersion;
-  int minor = XkbMinorVersion;
-  int reasonReturn;
+  int32_t eventCode;
+  int32_t errorReturn;
+  int32_t major = XkbMajorVersion;
+  int32_t minor = XkbMinorVersion;
+  int32_t reasonReturn;
 
 
   Display* display = XkbOpenDisplay(displayName, 
@@ -413,7 +432,7 @@ xkb_groups_lock_prev(void)
 	uint8_t base_event_out;
 	uint8_t base_error_out;
 
-	int ret = xkb_x11_setup_xkb_extension(connection,
+	int32_t ret = xkb_x11_setup_xkb_extension(connection,
                                         XKB_X11_MIN_MAJOR_XKB_VERSION,
                                         XKB_X11_MIN_MINOR_XKB_VERSION,
                                         XKB_X11_SETUP_XKB_EXTENSION_NO_FLAGS,
@@ -500,15 +519,22 @@ xkb_groups_lock_prev(void)
   return 0;
 }
 
+/*!
+* @brief list layouts
+*
+* This function lists avalible and current layouts
+* Implicit uses debug_flag
+* @return 0 if Ok and -1 if error
+*/
 int32_t
 xkb_groups_list(void)
 {
   char* displayName = strdup(""); // allocates memory for string!
-  int eventCode;
-  int errorReturn;
-  int major = XkbMajorVersion;
-  int minor = XkbMinorVersion;
-  int reasonReturn;
+  int32_t eventCode;
+  int32_t errorReturn;
+  int32_t major = XkbMajorVersion;
+  int32_t minor = XkbMinorVersion;
+  int32_t reasonReturn;
 
 
   Display* display = XkbOpenDisplay(displayName, 
@@ -566,7 +592,7 @@ xkb_groups_list(void)
 	uint8_t base_event_out;
 	uint8_t base_error_out;
 
-	int ret = xkb_x11_setup_xkb_extension(connection,
+	int32_t ret = xkb_x11_setup_xkb_extension(connection,
                                         XKB_X11_MIN_MAJOR_XKB_VERSION,
                                         XKB_X11_MIN_MINOR_XKB_VERSION,
                                         XKB_X11_SETUP_XKB_EXTENSION_NO_FLAGS,
