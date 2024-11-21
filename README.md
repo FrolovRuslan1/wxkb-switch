@@ -3,12 +3,15 @@ wxkb_switch - Utility for switching keyboard layouts under Wayland window system
 
 ### Using
 To switch layout to next under Wayland window system use:
+
 `wxkb_switch` or `wxkb_switch --next` or `wxkb_switch -n`
 
 To switch layout to previos under Wayland window system use:
+
 `wxkb_switch --prev` or `wxkb_switch -p`
 
 To list avalible and current layouts use:
+
 `wxkb_switch --list` or `wxkb_switch -l`
 
 IF you want display debug information use `--debug` or `-d` option with anoher options
