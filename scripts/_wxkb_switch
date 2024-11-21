@@ -1,0 +1,17 @@
+#compdef wxkb_switch
+
+# This is zsh wxkb_switch completion
+
+_arguments -s \
+'-h[Display this help message.]'      \
+'--help[Display this help message.]'  \
+'-v[Print program version.]'          \
+'--version[Print program version.]'   \
+'-d[Enable debug mode.]'              \
+'--debug[Enable debug mode.]'         \
+'-p[Set previos xkb layout.]'         \
+'--prev[Set previos xkb layout.]'     \
+'-n[Set next xkb layout.]'            \
+'--next[Set next xkb layout.]'        \
+'-l[List avalible layous.]'           \
+'--list[List avalible layous.]'

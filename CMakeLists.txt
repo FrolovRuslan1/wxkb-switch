@@ -73,10 +73,18 @@ set(external_libs PkgConfig::X11
 target_link_libraries(wxkb_switch ${external_libs})
 
 # Install program
-# INSTALL(TARGETS wxkb_switch
-#     RUNTIME DESTINATION bin
-#     LIBRARY DESTINATION lib OPTIONAL
-# )
+INSTALL(TARGETS wxkb_switch
+        RUNTIME DESTINATION bin)
+
+INSTALL(PROGRAMS scripts/wxkb_switch.sh
+        DESTINATION /etc/bash_completion.d)
+
+INSTALL(FILES scripts/_wxkb_switch
+        DESTINATION /usr/share/zsh/vendor-completions)
+
+INSTALL(FILES scripts/wxkb_switch.fish
+        DESTINATION /usr/share/fish/vendor_completions.d)
+
 
 # SET(MAN_COMPRESSION "gzip" CACHE STRING "Manpages compression tool")
 # SET(MANDIR "${CMAKE_INSTALL_PREFIX}/share/man" CACHE STRING "Manpages installation path")
@@ -124,3 +132,14 @@ target_link_libraries(wxkb_switch ${external_libs})
 
 # # Compress and install man page
 # install_man(wxkb_switch 1)
+
+
+# make uninstall
+add_custom_target("uninstall" COMMENT "Uninstall installed files")
+add_custom_command(
+    TARGET "uninstall"
+    POST_BUILD
+    COMMENT "Uninstall files with install_manifest.txt"
+    COMMAND xargs rm -vf < install_manifest.txt || echo Nothing in
+            install_manifest.txt to be uninstalled!
+)

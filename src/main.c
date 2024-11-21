@@ -86,8 +86,11 @@ options_handler(int32_t     argc,
 {
   assert(argv);
 
+  debug_msgnl("argc: %d", argc);
+  debug_msgnl("");
+
   /* getopt_long stores the option index here. */
-  int option_index = 0;
+  int32_t option_index = 0;
 
   while (true)
   {
@@ -140,20 +143,20 @@ options_handler(int32_t     argc,
 
       case 'h':
       {
-        debug_msgnl("Usage: openswitcher [options]");
-        debug_msgnl("Options:");
-        debug_msgnl("  -h, --help            Display this help message.");
-        debug_msgnl("  -n, --next            Set next xkb layout");
-        debug_msgnl("  -p, --prev            Set previos xkb layout");
-        debug_msgnl("  -l, --list            List avalible layous");
-        debug_msgnl("  -v, --version         Print program version.");
-        debug_msgnl("  -d, --debug           Enable debug mode.");
-        debug_msgnl("");
-        debug_msgnl("See also:");
-        debug_msgnl("man wxkb_switch");
-        debug_msgnl("sudo actkbd --help");
-        debug_msgnl("man xkb-switch");
-        debug_msgnl("man openswitcher");
+        puts("Usage: wxkb_switch [options]");
+        puts("Options:");
+        puts("  -h, --help            Display this help message.");
+        puts("  -n, --next            Set next xkb layout.");
+        puts("  -p, --prev            Set previos xkb layout.");
+        puts("  -l, --list            List avalible layous.");
+        puts("  -v, --version         Print program version.");
+        puts("  -d, --debug           Enable debug mode.");
+        puts("");
+        puts("See also:");
+        puts("man wxkb_switch");
+        puts("sudo actkbd --help");
+        puts("man xkb-switch");
+        puts("man openswitcher");
       }
       break;
 
@@ -219,19 +222,6 @@ options_handler(int32_t     argc,
       return -1;
     }
   }
-  
-
-	/* Print any remaining command line arguments (not options). */
-	if (option_index < argc-1)
-  {
-    debug_msg ("non-option ARGV-elements: ");
-    while (option_index < argc)
-    {
-      debug_msg ("%s ", argv[option_index++]);
-    }
-    debug_msgnl("");
-  }
-  debug_msgnl("argc: %d ", argc);
 
 	return 0;
 }
@@ -528,6 +518,21 @@ xkb_groups_list(void)
     debug_msgnl("display ERROR");
   }
 
+  XkbStateRec state_return;
+  if (XkbGetState(display, XkbUseCoreKbd, &state_return)
+  != Success)
+  {
+    debug_msgnl("XkbGetState() error occurred")
+    return -1;
+  }
+
+  debug_msgnl("Before switch to next group:")
+  debug_msg("state_return->group:          %d\n",  state_return.group);
+  debug_msg("state_return->base_group:     %d\n",  state_return.base_group);
+  debug_msg("state_return->locked_group:   %d\n",  state_return.locked_group);
+  debug_msg("state_return->latched_group:  %d\n",  state_return.latched_group);
+  debug_msgnl("")
+
 	struct xkb_context* context = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
 	if (context == NULL)
 	{
@@ -585,7 +590,15 @@ xkb_groups_list(void)
 
 	for (xkb_layout_index_t i = 0; i < num_layouts_x11; i++)
 	{
-		printf("index: %d layout name: %s\n", i, xkb_keymap_layout_get_name(x11_keymap, i)); 
+		printf("index: %d layout name: %s", i, xkb_keymap_layout_get_name(x11_keymap, i)); 
+    if (i == state_return.group)
+    {
+      printf(" <---current layout\n");
+    }
+    else
+    {
+      printf("\n");
+    }
 	}
 
   XCloseDisplay(display);
