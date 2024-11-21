@@ -18,6 +18,9 @@ cmake
 make
 sudo make install
 ```
+#### Using .deb
+Download package
+`sudo apt install ./wxkb_switcher-0.0.-Linux.deb`
 
 ### Unistalling
 #### Local
@@ -38,8 +41,7 @@ sudo make uninstall
 ```
 
 #### Using .deb
-Download package
-`sudo dpkg -i wxkb_switcher-0.0.-Linux.deb`
+`sudo apt remove wxkb_switcher`
 
 
 ### .deb package and others
