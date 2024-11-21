@@ -63,7 +63,6 @@ file(GLOB ALL_SRCS
 add_executable(wxkb_switch ${ALL_SRCS})
 # set_target_properties(wxkb_switch PROPERTIES 
 #                                   VERSION WXKBSWITCH_VERSION)
-# set_target_properties(wxkb_switch PROPERTIES LINKER_LANGUAGE C)
 set(external_libs PkgConfig::X11 
                   PkgConfig::XKBFILE 
                   PkgConfig::XKBCOMMON 
@@ -88,55 +87,6 @@ INSTALL(FILES scripts/wxkb_switch.fish
 install(FILES man/wxkb_switch.1
         DESTINATION share/man/man1)
 
-
-# SET(MAN_COMPRESSION "gzip" CACHE STRING "Manpages compression tool")
-# SET(MANDIR "${CMAKE_INSTALL_PREFIX}/share/man" CACHE STRING "Manpages installation path")
-
-# Function to compress and install man page
-# Gets file name and type number
-# function(install_man man_filename man_type)
-#     # check what compression tool is available
-#     FIND_PROGRAM(COMPRESS_EXECUTABLE NAMES ${MAN_COMPRESSION})
-#     if(NOT COMPRESS_EXECUTABLE)
-#       SET(MAN_COMPRESSION NO)
-#     endif()
-#     # set input an output file names
-#     SET(raw_man man/${man_filename}.${man_type})
-#     # compress if there is the compression tool
-#     if(MAN_COMPRESSION)
-#       if(COMPRESS_EXECUTABLE MATCHES "gzip")
-#           SET(installed_man ${CMAKE_BINARY_DIR}/${man_filename}.${man_type}.gz)
-#         else()
-#           SET(installed_man ${CMAKE_BINARY_DIR}/${man_filename}.${man_type}.${MAN_COMPRESSION})
-#         endif()
-#         ADD_CUSTOM_COMMAND(OUTPUT ${installed_man}
-#             COMMAND cat ${raw_man} | ${COMPRESS_EXECUTABLE} > ${installed_man}
-#             WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-#             DEPENDS ${raw_man}
-#             COMMENT "Compressing man file ${raw_man} to ${installed_man}"
-#         )
-#     # elsewise just copy
-#     else()
-#         SET(installed_man ${CMAKE_BINARY_DIR}/${man_filename}.${man_type})
-#         MESSAGE(WARNING "There is no compression tool for man pages. Not compressed copy of man file will be used.")
-#         ADD_CUSTOM_COMMAND(OUTPUT ${installed_man}
-#             COMMAND cp ${raw_man} ${CMAKE_BINARY_DIR}
-#             WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-#             DEPENDS ${raw_man}
-#             COMMENT "Copying man file from ${raw_man}."
-#         )
-#     endif()
-#     # add actions
-#     ADD_CUSTOM_TARGET(man_${man_filename}_${man_type} ALL DEPENDS ${installed_man})
-#     INSTALL(FILES ${installed_man}
-#         DESTINATION ${MANDIR}/man${man_type}
-#     )
-# endfunction()
-
-# # Compress and install man page
-# install_man(wxkb_switch 1)
-
-
 # make uninstall
 add_custom_target("uninstall" COMMENT "Uninstall installed files")
 add_custom_command(
@@ -146,3 +96,13 @@ add_custom_command(
     COMMAND xargs rm -vf < install_manifest.txt || echo Nothing in
             install_manifest.txt to be uninstalled!
 )
+
+# cpack deb package
+set(CPACK_PACKAGE_NAME "wxkb_switcher")
+set(CPACK_PACKAGE_VERSION ${WXKBSWITCH_VERSION})
+set(CPACK_DEBIAN_PACKAGE_MAINTAINER "Frolov Ruslan Victorovich")
+set(CPACK_DEBIAN_PACKAGE_SECTION "utils")
+set(CPACK_DEBIAN_PACKAGE_DESCRIPTION "Utility for switching keyboard layouts under Wayland window system.")
+set(CPACK_DEBIAN_PACKAGE_DEPENDS "libc6, libx11-6, libxkbcommon0, libxkbcommon-x11-0, libxcb1, libxkbregistry0, libxkbfile1")
+
+include(CPack)
