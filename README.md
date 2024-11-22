@@ -1,5 +1,6 @@
 # wxkb_switch
 wxkb_switch - Utility for switching keyboard layouts under Wayland window system.
+Works under X11 window system too.
 
 ### Using
 To switch layout to next under Wayland window system use:
