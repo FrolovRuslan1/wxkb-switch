@@ -243,22 +243,51 @@ xkb_groups_lock_next(void)
   int32_t minor = XkbMinorVersion;
   int32_t reasonReturn;
 
+  Display* x11_display = XOpenDisplay(displayName);
+  if (x11_display == NULL)
+  {
+    debug_msgnl("xkb_display ERROR");
+    return -1;
+  }
+  
+  int32_t opcode_rtrn;
+  int32_t event_rtrn;
+  int32_t error_rtrn;
+  if (XkbQueryExtension(x11_display, 
+                        &opcode_rtrn, 
+                        &event_rtrn, 
+                        &error_rtrn, 
+                        &major, 
+                        &minor)
+  != True)
+  {
+    debug_msgnl("XkbQueryExtension() error occurred")
+    XCloseDisplay(x11_display);
+    return -1;
+  }
+  
 
-  Display* display = XkbOpenDisplay(displayName, 
+
+  Display* xkb_display = XkbOpenDisplay(displayName, 
                                     &eventCode, 
                                     &errorReturn, 
                                     &major, 
                                     &minor, 
                                     &reasonReturn);
-  if (display == NULL)
+  if (xkb_display == NULL)
   {
-    debug_msgnl("display ERROR");
+    debug_msgnl("Xkb xkb_display ERROR");
+    XCloseDisplay(x11_display);
+    return -1;
   }
 
 	struct xkb_context* context = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
 	if (context == NULL)
 	{
     debug_msgnl("No context for libxkbcommon");
+    XCloseDisplay(xkb_display);
+    XCloseDisplay(x11_display);
+    return -1;
 	}
 
 	struct xkb_keymap* keymap = xkb_keymap_new_from_names(context, 
@@ -267,6 +296,9 @@ xkb_groups_lock_next(void)
 	if (keymap == NULL)
 	{
     debug_msgnl("No keymap for libxkbcommon");
+    XCloseDisplay(xkb_display);
+    XCloseDisplay(x11_display);
+    return -1;
 	}
 		
 	xkb_layout_index_t num_layouts = xkb_keymap_num_layouts(keymap);
@@ -277,6 +309,9 @@ xkb_groups_lock_next(void)
 	if (connection == NULL)
 	{
     debug_msgnl("No connection for xcb");
+    XCloseDisplay(xkb_display);
+    XCloseDisplay(x11_display);
+    return -1;
 	}
 
 	uint16_t major_xkb_version_out;
@@ -293,8 +328,19 @@ xkb_groups_lock_next(void)
                                 &minor_xkb_version_out,
                                 &base_event_out,
                                 &base_error_out);
+  if (ret != 1)
+  {
+    debug_msgnl("xkb_x11_setup_xkb_extension() error occurred")
+    goto error;
+  }
 
 	int32_t core_keyboard_device_id = xkb_x11_get_core_keyboard_device_id(connection);
+  if (core_keyboard_device_id == -1)
+  {
+    debug_msgnl("xkb_x11_get_core_keyboard_device_id() error occurred")
+    goto error;
+  }
+  
 
 	struct xkb_keymap* x11_keymap 
   = xkb_x11_keymap_new_from_device( context, 
@@ -304,6 +350,7 @@ xkb_groups_lock_next(void)
   if (x11_keymap == NULL)
 	{
     debug_msgnl("No x11_keymap for libxkbcommon-x11");
+    goto error;
 	}
 	
 	xkb_layout_index_t num_layouts_x11 = xkb_keymap_num_layouts(x11_keymap);
@@ -317,11 +364,11 @@ xkb_groups_lock_next(void)
   debug_msgnl("")
 
   XkbStateRec state_return;
-  if (XkbGetState(display, XkbUseCoreKbd, &state_return)
+  if (XkbGetState(xkb_display, XkbUseCoreKbd, &state_return)
   != Success)
   {
     debug_msgnl("XkbGetState() error occurred")
-    return -1;
+    goto error;
   }
 
   debug_msgnl("Before switch to next group:")
@@ -335,29 +382,29 @@ xkb_groups_lock_next(void)
   if (state_return.locked_group+1 > (num_layouts_x11-1))
   {
     // sets first layout
-    if (XkbLockGroup(display, XkbUseCoreKbd, 0)
+    if (XkbLockGroup(xkb_display, XkbUseCoreKbd, 0)
     !=  True)
     {
       debug_msgnl("XkbLockGroup() error occurred")
-      return -1;
+      goto error;
     }
   }
   else
   {
     // sets next layout
-	  if (XkbLockGroup(display, XkbUseCoreKbd, state_return.group+1) 
+	  if (XkbLockGroup(xkb_display, XkbUseCoreKbd, state_return.group+1) 
     !=  True)
     {
       debug_msgnl("XkbLockGroup() error occurred")
-      return -1;
+      goto error;
     }
   }	
 
-  if (XkbGetState(display, XkbUseCoreKbd, &state_return)
+  if (XkbGetState(xkb_display, XkbUseCoreKbd, &state_return)
   != Success)
   {
     debug_msgnl("XkbGetState() error occurred")
-    return -1;
+    goto error;
   }
 
   debug_msgnl("After switch to next group:")
@@ -367,9 +414,13 @@ xkb_groups_lock_next(void)
   debug_msg("state_return->latched_group:  %d\n",  state_return.latched_group);
   debug_msgnl("")
 
-  XCloseDisplay(display);
-
   return 0;
+
+error:
+  xcb_disconnect(connection);
+  XCloseDisplay(xkb_display);
+  XCloseDisplay(x11_display);
+  return -1;
 }
 
 /*!
@@ -391,22 +442,51 @@ xkb_groups_lock_prev(void)
   int32_t minor = XkbMinorVersion;
   int32_t reasonReturn;
 
+  Display* x11_display = XOpenDisplay(displayName);
+  if (x11_display == NULL)
+  {
+    debug_msgnl("xkb_display ERROR");
+    return -1;
+  }
+  
+  int32_t opcode_rtrn;
+  int32_t event_rtrn;
+  int32_t error_rtrn;
+  if (XkbQueryExtension(x11_display, 
+                        &opcode_rtrn, 
+                        &event_rtrn, 
+                        &error_rtrn, 
+                        &major, 
+                        &minor)
+  != True)
+  {
+    debug_msgnl("XkbQueryExtension() error occurred")
+    XCloseDisplay(x11_display);
+    return -1;
+  }
+  
 
-  Display* display = XkbOpenDisplay(displayName, 
+
+  Display* xkb_display = XkbOpenDisplay(displayName, 
                                     &eventCode, 
                                     &errorReturn, 
                                     &major, 
                                     &minor, 
                                     &reasonReturn);
-  if (display == NULL)
+  if (xkb_display == NULL)
   {
-    debug_msgnl("display ERROR");
+    debug_msgnl("Xkb xkb_display ERROR");
+    XCloseDisplay(x11_display);
+    return -1;
   }
 
 	struct xkb_context* context = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
 	if (context == NULL)
 	{
     debug_msgnl("No context for libxkbcommon");
+    XCloseDisplay(xkb_display);
+    XCloseDisplay(x11_display);
+    return -1;
 	}
 
 	struct xkb_keymap* keymap = xkb_keymap_new_from_names(context, 
@@ -415,6 +495,9 @@ xkb_groups_lock_prev(void)
 	if (keymap == NULL)
 	{
     debug_msgnl("No keymap for libxkbcommon");
+    XCloseDisplay(xkb_display);
+    XCloseDisplay(x11_display);
+    return -1;
 	}
 		
 	xkb_layout_index_t num_layouts = xkb_keymap_num_layouts(keymap);
@@ -425,6 +508,9 @@ xkb_groups_lock_prev(void)
 	if (connection == NULL)
 	{
     debug_msgnl("No connection for xcb");
+    XCloseDisplay(xkb_display);
+    XCloseDisplay(x11_display);
+    return -1;
 	}
 
 	uint16_t major_xkb_version_out;
@@ -432,16 +518,28 @@ xkb_groups_lock_prev(void)
 	uint8_t base_event_out;
 	uint8_t base_error_out;
 
-	int32_t ret = xkb_x11_setup_xkb_extension(connection,
-                                        XKB_X11_MIN_MAJOR_XKB_VERSION,
-                                        XKB_X11_MIN_MINOR_XKB_VERSION,
-                                        XKB_X11_SETUP_XKB_EXTENSION_NO_FLAGS,
-                                        &major_xkb_version_out,
-                                        &minor_xkb_version_out,
-                                        &base_event_out,
-                                        &base_error_out);
+	int32_t ret 
+  = xkb_x11_setup_xkb_extension(connection,
+                                XKB_X11_MIN_MAJOR_XKB_VERSION,
+                                XKB_X11_MIN_MINOR_XKB_VERSION,
+                                XKB_X11_SETUP_XKB_EXTENSION_NO_FLAGS,
+                                &major_xkb_version_out,
+                                &minor_xkb_version_out,
+                                &base_event_out,
+                                &base_error_out);
+  if (ret != 1)
+  {
+    debug_msgnl("xkb_x11_setup_xkb_extension() error occurred")
+    goto error;
+  }
 
 	int32_t core_keyboard_device_id = xkb_x11_get_core_keyboard_device_id(connection);
+  if (core_keyboard_device_id == -1)
+  {
+    debug_msgnl("xkb_x11_get_core_keyboard_device_id() error occurred")
+    goto error;
+  }
+  
 
 	struct xkb_keymap* x11_keymap 
   = xkb_x11_keymap_new_from_device( context, 
@@ -451,6 +549,7 @@ xkb_groups_lock_prev(void)
   if (x11_keymap == NULL)
 	{
     debug_msgnl("No x11_keymap for libxkbcommon-x11");
+    goto error;
 	}
 	
 	xkb_layout_index_t num_layouts_x11 = xkb_keymap_num_layouts(x11_keymap);
@@ -464,11 +563,11 @@ xkb_groups_lock_prev(void)
   debug_msgnl("")
 
   XkbStateRec state_return;
-  if (XkbGetState(display, XkbUseCoreKbd, &state_return)
+  if (XkbGetState(xkb_display, XkbUseCoreKbd, &state_return)
   != Success)
   {
     debug_msgnl("XkbGetState() error occurred")
-    return -1;
+    goto error;
   }
 
   debug_msgnl("Before switch to next group:")
@@ -482,7 +581,7 @@ xkb_groups_lock_prev(void)
   if (state_return.locked_group-1 < 0)
   {
     // sets last layout
-    if (XkbLockGroup(display, XkbUseCoreKbd, num_layouts_x11-1) 
+    if (XkbLockGroup(xkb_display, XkbUseCoreKbd, num_layouts_x11-1) 
     !=  True)
     {
       debug_msgnl("XkbLockGroup() error occurred")
@@ -492,19 +591,19 @@ xkb_groups_lock_prev(void)
   else
   {
     // sets previos layout
-	  if (XkbLockGroup(display, XkbUseCoreKbd, 0) 
+	  if (XkbLockGroup(xkb_display, XkbUseCoreKbd, 0) 
     !=  True)
     {
       debug_msgnl("XkbLockGroup() error occurred")
       return -1;
     }
-  }	
+  }		
 
-  if (XkbGetState(display, XkbUseCoreKbd, &state_return)
+  if (XkbGetState(xkb_display, XkbUseCoreKbd, &state_return)
   != Success)
   {
     debug_msgnl("XkbGetState() error occurred")
-    return -1;
+    goto error;
   }
 
   debug_msgnl("After switch to next group:")
@@ -514,9 +613,13 @@ xkb_groups_lock_prev(void)
   debug_msg("state_return->latched_group:  %d\n",  state_return.latched_group);
   debug_msgnl("")
 
-  XCloseDisplay(display);
-
   return 0;
+
+error:
+  xcb_disconnect(connection);
+  XCloseDisplay(xkb_display);
+  XCloseDisplay(x11_display);
+  return -1;
 }
 
 /*!
@@ -529,44 +632,58 @@ xkb_groups_lock_prev(void)
 int32_t
 xkb_groups_list(void)
 {
-  char* displayName = strdup(""); // allocates memory for string!
+  char* displayName = "";
   int32_t eventCode;
   int32_t errorReturn;
   int32_t major = XkbMajorVersion;
   int32_t minor = XkbMinorVersion;
   int32_t reasonReturn;
 
+  Display* x11_display = XOpenDisplay(displayName);
+  if (x11_display == NULL)
+  {
+    debug_msgnl("xkb_display ERROR");
+    return -1;
+  }
+  
+  int32_t opcode_rtrn;
+  int32_t event_rtrn;
+  int32_t error_rtrn;
+  if (XkbQueryExtension(x11_display, 
+                        &opcode_rtrn, 
+                        &event_rtrn, 
+                        &error_rtrn, 
+                        &major, 
+                        &minor)
+  != True)
+  {
+    debug_msgnl("XkbQueryExtension() error occurred")
+    XCloseDisplay(x11_display);
+    return -1;
+  }
+  
 
-  Display* display = XkbOpenDisplay(displayName, 
+
+  Display* xkb_display = XkbOpenDisplay(displayName, 
                                     &eventCode, 
                                     &errorReturn, 
                                     &major, 
                                     &minor, 
                                     &reasonReturn);
-  if (display == NULL)
+  if (xkb_display == NULL)
   {
-    debug_msgnl("display ERROR");
-  }
-
-  XkbStateRec state_return;
-  if (XkbGetState(display, XkbUseCoreKbd, &state_return)
-  != Success)
-  {
-    debug_msgnl("XkbGetState() error occurred")
+    debug_msgnl("Xkb xkb_display ERROR");
+    XCloseDisplay(x11_display);
     return -1;
   }
-
-  debug_msgnl("Before switch to next group:")
-  debug_msg("state_return->group:          %d\n",  state_return.group);
-  debug_msg("state_return->base_group:     %d\n",  state_return.base_group);
-  debug_msg("state_return->locked_group:   %d\n",  state_return.locked_group);
-  debug_msg("state_return->latched_group:  %d\n",  state_return.latched_group);
-  debug_msgnl("")
 
 	struct xkb_context* context = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
 	if (context == NULL)
 	{
     debug_msgnl("No context for libxkbcommon");
+    XCloseDisplay(xkb_display);
+    XCloseDisplay(x11_display);
+    return -1;
 	}
 
 	struct xkb_keymap* keymap = xkb_keymap_new_from_names(context, 
@@ -575,6 +692,9 @@ xkb_groups_list(void)
 	if (keymap == NULL)
 	{
     debug_msgnl("No keymap for libxkbcommon");
+    XCloseDisplay(xkb_display);
+    XCloseDisplay(x11_display);
+    return -1;
 	}
 		
 	xkb_layout_index_t num_layouts = xkb_keymap_num_layouts(keymap);
@@ -585,6 +705,9 @@ xkb_groups_list(void)
 	if (connection == NULL)
 	{
     debug_msgnl("No connection for xcb");
+    XCloseDisplay(xkb_display);
+    XCloseDisplay(x11_display);
+    return -1;
 	}
 
 	uint16_t major_xkb_version_out;
@@ -592,16 +715,28 @@ xkb_groups_list(void)
 	uint8_t base_event_out;
 	uint8_t base_error_out;
 
-	int32_t ret = xkb_x11_setup_xkb_extension(connection,
-                                        XKB_X11_MIN_MAJOR_XKB_VERSION,
-                                        XKB_X11_MIN_MINOR_XKB_VERSION,
-                                        XKB_X11_SETUP_XKB_EXTENSION_NO_FLAGS,
-                                        &major_xkb_version_out,
-                                        &minor_xkb_version_out,
-                                        &base_event_out,
-                                        &base_error_out);
+	int32_t ret 
+  = xkb_x11_setup_xkb_extension(connection,
+                                XKB_X11_MIN_MAJOR_XKB_VERSION,
+                                XKB_X11_MIN_MINOR_XKB_VERSION,
+                                XKB_X11_SETUP_XKB_EXTENSION_NO_FLAGS,
+                                &major_xkb_version_out,
+                                &minor_xkb_version_out,
+                                &base_event_out,
+                                &base_error_out);
+  if (ret != 1)
+  {
+    debug_msgnl("xkb_x11_setup_xkb_extension() error occurred")
+    goto error;
+  }
 
 	int32_t core_keyboard_device_id = xkb_x11_get_core_keyboard_device_id(connection);
+  if (core_keyboard_device_id == -1)
+  {
+    debug_msgnl("xkb_x11_get_core_keyboard_device_id() error occurred")
+    goto error;
+  }
+  
 
 	struct xkb_keymap* x11_keymap 
   = xkb_x11_keymap_new_from_device( context, 
@@ -611,14 +746,28 @@ xkb_groups_list(void)
   if (x11_keymap == NULL)
 	{
     debug_msgnl("No x11_keymap for libxkbcommon-x11");
+    goto error;
 	}
 	
 	xkb_layout_index_t num_layouts_x11 = xkb_keymap_num_layouts(x11_keymap);
 	debug_msg("num_layouts_x11: %d\n", num_layouts_x11);
   debug_msgnl("")
 
+  XkbStateRec state_return;
+  if (XkbGetState(xkb_display, XkbUseCoreKbd, &state_return)
+  != Success)
+  {
+    debug_msgnl("XkbGetState() error occurred")
+    goto error;
+  }
 
-	for (xkb_layout_index_t i = 0; i < num_layouts_x11; i++)
+  debug_msg("state_return->group:          %d\n",  state_return.group);
+  debug_msg("state_return->base_group:     %d\n",  state_return.base_group);
+  debug_msg("state_return->locked_group:   %d\n",  state_return.locked_group);
+  debug_msg("state_return->latched_group:  %d\n",  state_return.latched_group);
+  debug_msgnl("")
+
+  for (xkb_layout_index_t i = 0; i < num_layouts_x11; i++)
 	{
 		printf("index: %d layout name: %s", i, xkb_keymap_layout_get_name(x11_keymap, i)); 
     if (i == state_return.locked_group)
@@ -631,7 +780,11 @@ xkb_groups_list(void)
     }
 	}
 
-  XCloseDisplay(display);
-
   return 0;
+
+error:
+  xcb_disconnect(connection);
+  XCloseDisplay(xkb_display);
+  XCloseDisplay(x11_display);
+  return -1;
 }
