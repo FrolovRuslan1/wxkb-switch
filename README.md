@@ -54,6 +54,9 @@ sudo make uninstall
 #### Using .deb
 `sudo apt remove wxkb_switcher`
 
+### Supporting
+Doesnt support Gnome under X11, but under Wayland supports
+
 
 ### .deb package and others
 I use cpack to generate .deb package
