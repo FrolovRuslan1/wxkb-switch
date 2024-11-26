@@ -269,11 +269,11 @@ xkb_groups_lock_next(void)
 
 
   Display* xkb_display = XkbOpenDisplay(displayName, 
-                                    &eventCode, 
-                                    &errorReturn, 
-                                    &major, 
-                                    &minor, 
-                                    &reasonReturn);
+                                        &eventCode, 
+                                        &errorReturn, 
+                                        &major, 
+                                        &minor, 
+                                        &reasonReturn);
   if (xkb_display == NULL)
   {
     debug_msgnl("Xkb xkb_display ERROR");
@@ -357,6 +357,13 @@ xkb_groups_lock_next(void)
 	debug_msg("num_layouts_x11: %d\n", num_layouts_x11);
   debug_msgnl("")
 
+  // only for Gnome decrease num_layouts_x11, Gnome little buggy :)
+  if (system("env | grep XDG_SESSION_DESKTOP | grep gnome > /dev/null")
+  ==  0)
+  {
+    num_layouts_x11 -= 1;
+  }
+
 	for (xkb_layout_index_t i = 0; i < num_layouts_x11; i++)
 	{
 		debug_msg("i: %d layout: %s\n", i, xkb_keymap_layout_get_name(x11_keymap, i)); 
@@ -392,7 +399,7 @@ xkb_groups_lock_next(void)
   else
   {
     // sets next layout
-	  if (XkbLockGroup(xkb_display, XkbUseCoreKbd, state_return.group+1) 
+	  if (XkbLockGroup(xkb_display, XkbUseCoreKbd, state_return.locked_group+1) 
     !=  True)
     {
       debug_msgnl("XkbLockGroup() error occurred")
@@ -468,11 +475,11 @@ xkb_groups_lock_prev(void)
 
 
   Display* xkb_display = XkbOpenDisplay(displayName, 
-                                    &eventCode, 
-                                    &errorReturn, 
-                                    &major, 
-                                    &minor, 
-                                    &reasonReturn);
+                                        &eventCode, 
+                                        &errorReturn, 
+                                        &major, 
+                                        &minor, 
+                                        &reasonReturn);
   if (xkb_display == NULL)
   {
     debug_msgnl("Xkb xkb_display ERROR");
@@ -555,6 +562,13 @@ xkb_groups_lock_prev(void)
 	xkb_layout_index_t num_layouts_x11 = xkb_keymap_num_layouts(x11_keymap);
 	debug_msg("num_layouts_x11: %d\n", num_layouts_x11);
   debug_msgnl("")
+
+  // only for Gnome decrease num_layouts_x11, Gnome little buggy :)
+  if (system("env | grep XDG_SESSION_DESKTOP | grep gnome > /dev/null")
+  ==  0)
+  {
+    num_layouts_x11 -= 1;
+  }
 
 	for (xkb_layout_index_t i = 0; i < num_layouts_x11; i++)
 	{
@@ -665,11 +679,11 @@ xkb_groups_list(void)
 
 
   Display* xkb_display = XkbOpenDisplay(displayName, 
-                                    &eventCode, 
-                                    &errorReturn, 
-                                    &major, 
-                                    &minor, 
-                                    &reasonReturn);
+                                        &eventCode, 
+                                        &errorReturn, 
+                                        &major, 
+                                        &minor, 
+                                        &reasonReturn);
   if (xkb_display == NULL)
   {
     debug_msgnl("Xkb xkb_display ERROR");
@@ -752,6 +766,13 @@ xkb_groups_list(void)
 	xkb_layout_index_t num_layouts_x11 = xkb_keymap_num_layouts(x11_keymap);
 	debug_msg("num_layouts_x11: %d\n", num_layouts_x11);
   debug_msgnl("")
+
+  // only for Gnome decrease num_layouts_x11, Gnome little buggy :)
+  if (system("env | grep XDG_SESSION_DESKTOP | grep gnome > /dev/null")
+  ==  0)
+  {
+    num_layouts_x11 -= 1;
+  }
 
   XkbStateRec state_return;
   if (XkbGetState(xkb_display, XkbUseCoreKbd, &state_return)
