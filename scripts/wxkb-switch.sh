@@ -1,8 +1,8 @@
 #!/bin/bash
 
-# This is bash wxkb_switch completion
+# This is bash wxkb-switch completion
 
-_wxkb_switch() {
+_wxkb-switch() {
     local cur prev opts
 
     cur="${COMP_WORDS[COMP_CWORD]}"
@@ -47,4 +47,4 @@ _wxkb_switch() {
             ;;
     esac
 }
-complete -F _wxkb_switch wxkb_switch
+complete -F _wxkb-switch wxkb-switch

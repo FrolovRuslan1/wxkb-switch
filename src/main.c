@@ -142,17 +142,17 @@ options_handler(int32_t     argc,
 
       case 'h':
       {
-        puts("Usage: wxkb_switch [options]");
+        puts("Usage: wxkb-switch [options]");
         puts("Options:");
         puts("  -h, --help            Display this help message.");
         puts("  -n, --next            Set next xkb layout.");
-        puts("  -p, --prev            Set previos xkb layout.");
-        puts("  -l, --list            List avalible layous.");
+        puts("  -p, --prev            Set previous xkb layout.");
+        puts("  -l, --list            List available layouts.");
         puts("  -v, --version         Print program version.");
         puts("  -d, --debug           Enable debug mode.");
         puts("");
         puts("See also:");
-        puts("man wxkb_switch");
+        puts("man wxkb-switch");
         puts("sudo actkbd --help");
         puts("man xkb-switch");
         puts("man openswitcher");

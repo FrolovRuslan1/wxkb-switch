@@ -1,63 +1,141 @@
-# wxkb_switch
-wxkb_switch - Utility for switching keyboard layouts under Wayland window system.
-Works under X11 window system too.
+# wxkb-switch
 
-### Using
-To switch layout to next under Wayland window system use:
+Utility for switching keyboard layouts under Wayland and X11 window systems.
+Reads the current XKB configuration directly — no setup required.
 
-`wxkb_switch` or `wxkb_switch --next` or `wxkb_switch -n`
+## Features
 
-To switch layout to previos under Wayland window system use:
+- Switch to next or previous keyboard layout
+- List all available layouts with current one marked
+- Works on Wayland (via XWayland/XKB) and most X11 desktop environments
+- Shell completion for bash, zsh, and fish
+- Man page included
+- Debug mode for troubleshooting
 
-`wxkb_switch --prev` or `wxkb_switch -p`
+## Requirements
 
-To list avalible and current layouts use:
+| Library | Purpose |
+|---------|--------|
+| libX11 | X11 display connection |
+| libxkbcommon-x11 | XKB keymap discovery via xkbcommon |
+| libxkbfile | XKB file format support |
+| libxcb | XCB connection for keyboard device ID |
 
-`wxkb_switch --list` or `wxkb_switch -l`
+## Installation
 
-IF you want display debug information use `--debug` or `-d` option with anoher options
+### From .deb package (Debian/Ubuntu)
 
-### Installing 
-
-#### Local install with compiling
-To install local use:
+Download the latest release from [GitHub Releases](https://github.com/FrolovRuslan1/wxkb-switch/releases):
+```bash
+wget https://github.com/FrolovRuslan1/wxkb-switch/releases/download/v1.0.3/wxkb-switch-1.0.3-Linux.deb
+sudo apt install ./wxkb-switch-1.0.3-Linux.deb
 ```
-sudo apt install pkg-config libx11-dev libxkbcommon-x11-dev libxkbfile-dev libxcb1-dev
-git clone https://github.com/FrolovRuslan1/wxkb_switch.git 
-cd wxkb_switch
-mkdir build
-cd build
+
+### From source (recommended)
+
+**Install build dependencies:**
+```bash
+# Debian/Ubuntu
+sudo apt install build-essential cmake pkg-config \
+    libx11-dev libxkbcommon-x11-dev libxkbfile-dev libxcb1-dev
+
+# Fedora
+sudo dnf install gcc make cmake pkgconf-pkg-config \
+    libX11-devel xkbcommon-x11-devel libxkbfile-devel libxcb-devel
+```
+
+**Build and install:**
+```bash
+git clone https://github.com/FrolovRuslan1/wxkb-switch.git
+cd wxkb-switch
+mkdir build && cd build
 cmake ..
 make
 sudo make install
 ```
-#### Using .deb
-```
-wget https://github.com/FrolovRuslan1/wxkb_switch/releases/download/1.0.2/wxkb_switcher-1.0.2-Linux.deb
-sudo apt install ./wxkb_switcher-0.0.-Linux.deb
+
+## Building a .deb Package
+
+To generate your own `.deb` package from source:
+
+```bash
+# Configure with /usr prefix (standard for packages)
+cmake -S . -B build -DCMAKE_INSTALL_PREFIX=/usr
+
+# Build
+cmake --build build
+
+# Generate the .deb package
+cpack --config build/CPackConfig.cmake -G DEB
 ```
 
-### Unistalling
-#### Local
+The resulting `.deb` file will be placed in the project root directory.
+You can install it with:
+```bash
+sudo apt install ./wxkb-switch-*.deb
 ```
-sudo apt install pkg-config libx11-dev libxkbcommon-x11-dev libxkbfile-dev libxcb1-dev
-git clone https://github.com/FrolovRuslan1/wxkb_switch.git 
-cd wxkb_switch
-mkdir build
-cd build
-cmake ..
-make
-sudo make install
+
+## Usage
+
+```bash
+wxkb-switch [options]
+```
+
+| Command | Options | Description |
+|---------|---------|-------------|
+| Next layout | `wxkb-switch` / `-n` / `--next` | Switch to the next keyboard layout |
+| Previous layout | `-p` / `--prev` | Switch to the previous keyboard layout |
+| List layouts | `-l` / `--list` | Show all available layouts and current one |
+| Version | `-v` / `--version` | Print program version |
+| Debug mode | `-d` / `--debug` | Enable verbose output (combine with other options) |
+| Help | `-h` / `--help` | Display help message |
+
+### Examples
+
+```bash
+# Switch to next layout (default action)
+wxkb-switch
+
+# Switch to previous layout
+wxkb-switch --prev
+
+# List all layouts (current marked with arrow)
+wxkb-switch --list
+
+# Debug output when switching
+wxkb-switch -d --next
+```
+
+### Shell Integration
+
+The package installs completion scripts for bash, zsh, and fish automatically.
+Reload your shell or source the completion file to start using tab completion:
+```bash
+# Bash — usually loaded automatically via /etc/bash_completion.d/
+source /etc/bash_completion.d/wxkb-switch.sh
+```
+
+## Uninstalling
+
+### From .deb package
+```bash
+sudo apt remove wxkb-switch
+```
+
+### From source build
+```bash
+cd wxkb-switch/build
 sudo make uninstall
 ```
 
-#### Using .deb
-`sudo apt remove wxkb_switcher`
+## Compatibility
 
-### Supporting
-Doesnt support Gnome under X11, but under Wayland it supports
+| Environment | Status |
+|-------------|--------|
+| Wayland (all) | Supported |
+| X11 (most DEs) | Supported |
+| GNOME on X11 | Not supported |
 
+## License
 
-### .deb package and others
-I use cpack to generate .deb package
-`sudo cpack -G DEB`
+See [LICENSE](LICENSE) for details.
