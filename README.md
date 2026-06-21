@@ -27,8 +27,16 @@ Reads the current XKB configuration directly — no setup required.
 
 Download the latest release from [GitHub Releases](https://github.com/FrolovRuslan1/wxkb-switch/releases):
 ```bash
-wget https://github.com/FrolovRuslan1/wxkb-switch/releases/download/v1.0.3/wxkb-switch-1.0.3-Linux.deb
-sudo apt install ./wxkb-switch-1.0.3-Linux.deb
+wget https://github.com/FrolovRuslan1/wxkb-switch/releases/download/v1.0.4/wxkb-switch-1.0.4-Linux.deb
+sudo apt install ./wxkb-switch-1.0.4-Linux.deb
+```
+
+### From .rpm package (Fedora/RHEL/openSUSE)
+
+Download the latest release from [GitHub Releases](https://github.com/FrolovRuslan1/wxkb-switch/releases):
+```bash
+wget https://github.com/FrolovRuslan1/wxkb-switch/releases/download/v1.0.4/wxkb-switch-1.0.4-Linux.x86_64.rpm
+sudo dnf install ./wxkb-switch-1.0.4-Linux.x86_64.rpm
 ```
 
 ### From source (recommended)
@@ -54,7 +62,27 @@ make
 sudo make install
 ```
 
-## Building a .deb Package
+**Customize installation paths (optional):**
+
+Shell completion scripts can be installed to custom directories via CMake variables:
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `WXKB_BASH_COMPLETION_DIR` | `${PREFIX}/etc/bash_completion.d` | Bash completion script location |
+| `WXKB_ZSH_COMPLETION_DIR` | `${PREFIX}/share/zsh/site-functions` | Zsh completion function location |
+| `WXKB_FISH_COMPLETION_DIR` | `${PREFIX}/share/fish/vendor_completions.d` | Fish completion script location |
+
+Example — install binary to `/opt/myapp` but completions to system directories:
+```bash
+cmake -S . -B build \
+    -DCMAKE_INSTALL_PREFIX=/opt/myapp \
+    -DWXKB_BASH_COMPLETION_DIR=/etc/bash_completion.d \
+    -DWXKB_ZSH_COMPLETION_DIR=/usr/share/zsh/site-functions
+```
+
+## Building Packages
+
+### .deb Package (Debian/Ubuntu)
 
 To generate your own `.deb` package from source:
 
@@ -75,6 +103,34 @@ You can install it with:
 sudo apt install ./wxkb-switch-*.deb
 ```
 
+### .rpm Package (Fedora/RHEL/openSUSE)
+
+To generate your own `.rpm` package from source:
+
+```bash
+# Configure with /usr prefix (standard for packages)
+cmake -S . -B build -DCMAKE_INSTALL_PREFIX=/usr
+
+# Build
+cmake --build build
+
+# Generate the .rpm package
+cpack --config build/CPackConfig.cmake -G RPM
+```
+
+The resulting `.rpm` file will be placed in the project root directory.
+You can install it with:
+```bash
+# Fedora/RHEL
+sudo dnf install ./wxkb-switch-*.rpm
+
+# openSUSE
+sudo zypper install ./wxkb-switch-*.rpm
+```
+
+> **Note:** Building RPM packages requires `rpmbuild` to be installed.
+> On Fedora: `sudo dnf install rpm-build`. On RHEL: `sudo yum install rpm-build`.
+
 ## Usage
 
 ```bash
@@ -85,9 +141,10 @@ wxkb-switch [options]
 |---------|---------|-------------|
 | Next layout | `wxkb-switch` / `-n` / `--next` | Switch to the next keyboard layout |
 | Previous layout | `-p` / `--prev` | Switch to the previous keyboard layout |
-| List layouts | `-l` / `--list` | Show all available layouts and current one |
+| List layouts | `-l` / `--list` | Show all available layouts (current marked with `<---`) |
 | Version | `-v` / `--version` | Print program version |
 | Debug mode | `-d` / `--debug` | Enable verbose output (combine with other options) |
+| GNOME override | `-g` / `--gnome` | Force execution under GNOME |
 | Help | `-h` / `--help` | Display help message |
 
 ### Examples
@@ -99,9 +156,17 @@ wxkb-switch
 # Switch to previous layout
 wxkb-switch --prev
 
-# List all layouts (current marked with arrow)
+# List all layouts (current marked with <---)
 wxkb-switch --list
+```
 
+Output example:
+```
+0: English (US) <--- current layout
+1: Russian
+```
+
+```bash
 # Debug output when switching
 wxkb-switch -d --next
 ```
@@ -122,6 +187,13 @@ source /etc/bash_completion.d/wxkb-switch.sh
 sudo apt remove wxkb-switch
 ```
 
+### From .rpm package
+```bash
+sudo dnf remove wxkb-switch
+# or on older systems:
+sudo rpm -e wxkb-switch
+```
+
 ### From source build
 ```bash
 cd wxkb-switch/build
@@ -134,7 +206,7 @@ sudo make uninstall
 |-------------|--------|
 | Wayland (all) | Supported |
 | X11 (most DEs) | Supported |
-| GNOME on X11 | Not supported |
+| GNOME (X11/Wayland) | Not supported — GNOME's settings-daemon manages layouts independently and may override external changes |
 
 ## License
 

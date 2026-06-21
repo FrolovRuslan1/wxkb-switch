@@ -9,6 +9,8 @@ _arguments -s \
 '--version[Print program version.]'   \
 '-d[Enable debug mode.]'              \
 '--debug[Enable debug mode.]'         \
+'-g[Force execution under GNOME.]'    \
+'--gnome[Force execution under GNOME.]'\
 '-p[Set previous xkb layout.]'        \
 '--prev[Set previous xkb layout.]'    \
 '-n[Set next xkb layout.]'            \

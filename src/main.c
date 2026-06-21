@@ -1,142 +1,511 @@
 #include <stdio.h>
+#include <stdarg.h>
 #include <stdlib.h>
 #include <stdbool.h>
 #include <string.h>
-#include <unistd.h>
-#include <ctype.h>
+#include <time.h>
+#include <errno.h>
+#include <getopt.h>
 #include <assert.h>
 
-#include <fcntl.h>
-#include <errno.h>
-#include <time.h>
-#include <getopt.h>
-#include <pwd.h>
-
-
 #include <X11/Xlib.h>
-#include <X11/X.h>
-#include <X11/Xatom.h>
-#include <X11/keysym.h>
-
 #include <X11/XKBlib.h>
-#include <X11/extensions/XKBrules.h>
 
 #include <xkbcommon/xkbcommon-x11.h>
 
-int32_t
-xkb_groups_list(void);
+/* ── Shared XKB session context ─────────────────────────────────────── */
 
-int32_t
-xkb_groups_lock_prev(void);
-
-int32_t
-xkb_groups_lock_next(void);
-
-int32_t 
-options_handler(int32_t     argc, 
-                const char* argv[]);
-
-// sets in options_handler(), I cant do that varible local
-bool debug_flag = false;
-
-#define debug_msg(...)    \
-{                         \
-  if (debug_flag)         \
-  {                       \
-    printf(__VA_ARGS__);  \
-  }                       \
-}
-
-#define debug_msgnl(...)  \
-{                         \
-  if (debug_flag)         \
-  {                       \
-    printf(__VA_ARGS__);  \
-    printf("\n");         \
-  }                       \
-}
-
-
-int32_t 
-main( int32_t     argc, 
-      const char* argv[])
+/** @brief XKB session state.
+ *
+ * Holds all resources required for keyboard layout operations:
+ * the X11 display connection, xkbcommon context and keymaps,
+ * the XCB connection needed to query the live XKB configuration,
+ * and the number of layouts discovered on this session.
+ */
+typedef struct xkb_session
 {
-	if (options_handler(argc, argv) != 0)
+  Display*           display;      /**< X11 display connection. */
+  struct xkb_context* context;     /**< xkbcommon context for keymap compilation. */
+  struct xkb_keymap* keymap;       /**< Default system keymap (built from names). */
+  struct xkb_keymap* x11_keymap;   /**< Live keymap captured from the X11 device. */
+  xcb_connection_t*  connection;   /**< XCB connection for extension setup / device ID. */
+  xkb_layout_index_t num_layouts;  /**< Number of layouts in @p x11_keymap. */
+} xkb_session_t;
+
+/* ── Forward declarations ───────────────────────────────────────────── */
+
+static int xkb_session_init(xkb_session_t* session);
+static void xkb_session_free(xkb_session_t* session);
+
+static int xkb_groups_list(void);
+
+/* ── Enum for lock direction (used only by xkb_groups_lock) ───────── */
+
+/** @brief Direction of layout switch.
+ *
+ * Passed to xkb_groups_lock() to indicate whether the next or previous
+ * keyboard group should be selected. Uses simple wrap-around semantics:
+ * NEXT advances and wraps to 0; PREV decrements and wraps to the last index.
+ */
+typedef enum xkb_lock_direction
+{
+  XKB_LOCK_NEXT,   /**< Advance to the next layout (wraps to first). */
+  XKB_LOCK_PREV    /**< Go back to the previous layout (wraps to last). */
+} xkb_lock_direction_t;
+
+static int xkb_groups_lock(xkb_lock_direction_t dir);
+
+static int options_handler(int argc,
+                           const char* argv[]);
+
+/* ── Global flags (set by CLI options) ──────────────────────────────── */
+
+static bool g_debug_flag     = false;
+static bool g_gnome_override = false;
+
+/* ── Debug infrastructure — msg→stdout, err→stderr ─────────────────── */
+
+/*! * @brief Core debug logging helper.
+ *
+ * Formats a timestamped, structured log line. Messages go to stdout;
+ * errors (is_error == true) additionally append errno details and source
+ * location, and are written to stderr.
+ *
+ * @param[in] component  Logical subsystem tag (e.g. "init", "switch").
+ * @param[in] action     Action/event descriptor.
+ * @param[in] fmt        printf-style format string (may be empty).
+ * @param[in] ap         va_list of optional arguments for fmt.
+ * @param[in] is_error   If true, append errno and source location.
+ * @param[in] file       Source file name (__FILE__).
+ * @param[in] func       Function name (__func__).
+ * @param[in] line       Line number (__LINE__).
+ */
+static void debug_msgnl_helper(const char* component,
+                               const char* action,
+                               const char* fmt,
+                               va_list     ap,
+                               bool        is_error,
+                               const char* file,
+                               const char* func,
+                               int         line)
+{
+  if (!g_debug_flag)
   {
-    debug_msgnl("options_handler() error occurred")
-    return -1;
+    return;
   }
 
-	return 0;
+  time_t now = time(NULL);
+  struct tm* tm_info = localtime(&now);
+  if (tm_info == NULL)
+  {
+    return;
+  }
+
+  char ts[26];
+  strftime(ts, sizeof(ts), "%Y-%m-%dT%H:%M:%S", tm_info);
+
+  FILE* stream = is_error ? stderr : stdout;
+
+  fprintf(stream,
+          "wxkb-switch dbg ts=%s component=%s action=%s",
+          ts, component, action);
+
+  if (fmt != NULL && fmt[0] != '\0')
+  {
+    fprintf(stream, ",");
+    vfprintf(stream, fmt, ap);
+  }
+
+  if (is_error)
+  {
+    fprintf(stderr,
+            " errno=%d errno_msg=\"%s\" file=%s func=%s line=%d",
+            errno, strerror(errno), file, func, line);
+  }
+
+  fputc('\n', stream);
 }
 
-/*!
-* @brief process program options
-*
-* This function process program options and calls handlers
-* Implicit uses debug_flag
-* @param argc[in] Count of arguments.
-* @param argv[in] pointer to arguments array of strings.
-* @return 0 if Ok and -1 if error
-*/
-int32_t 
-options_handler(int32_t     argc, 
-                const char* argv[])
+#define debug_msg(...) \
+    do { \
+      if (g_debug_flag) { \
+        fprintf(stdout, __VA_ARGS__); \
+      } \
+    } while (0)
+
+/* ── Thin inline wrappers — handle va_list for the helper ─────────── */
+
+/*! * @brief Internal variadic wrapper for debug logging.
+ *
+ * Called by the debug_msgnl macro. Does not include error metadata.
+ */
+static inline void _debug_log(const char* component,
+                              const char* action,
+                              const char* fmt,
+                              ...)
 {
-  assert(argv);
+  va_list ap;
+  va_start(ap, fmt);
+  debug_msgnl_helper(component, action, fmt, ap, false, NULL, NULL, 0);
+  va_end(ap);
+}
 
-  debug_msgnl("argc: %d", argc);
-  debug_msgnl("");
+/*! * @brief Internal variadic wrapper for error logging.
+ *
+ * Called by the debug_err macro with source location info captured at
+ * the call site (via __FILE__, __func__, __LINE__ in the macro).
+ */
+static inline void _debug_log_err(const char* component,
+                                  const char* action,
+                                  const char* fmt,
+                                  const char* file,
+                                  const char* func,
+                                  int         line,
+                                  ...)
+{
+  va_list ap;
+  va_start(ap, line);
+  debug_msgnl_helper(component, action, fmt, ap, true,
+                     file, func, line);
+  va_end(ap);
+}
 
-  /* getopt_long stores the option index here. */
+/* ── Public macros — capture source location at call site ─────────── */
+
+/*! * @brief Log a structured debug message.
+ *
+ * Usage: debug_msgnl("component", "action", "fmt", ...);
+ * The fmt argument may be an empty string if no extra data is needed.
+ */
+#define debug_msgnl(component, action, fmt, ...) \
+    _debug_log((component), (action), (fmt), ##__VA_ARGS__)
+
+/*! * @brief Log a structured error message with errno and source location.
+ *
+ * Automatically captures __FILE__, __func__, __LINE__ at the call site
+ * and the current errno value. Use this at every error site for maximum
+ * traceability.
+ */
+#define debug_err(component, action, fmt, ...) \
+    _debug_log_err((component), (action), (fmt), \
+                   __FILE__, __func__, (int)__LINE__, ##__VA_ARGS__)
+
+
+/* ── GNOME detection via getenv (no fork) ───────────────────────────── */
+
+/** @brief Detect whether the current session is running under GNOME.
+ *
+ * Reads the XDG_SESSION_DESKTOP environment variable and checks for a
+ * case-sensitive substring "gnome". This lightweight check avoids forking
+ * to external commands such as loginctl or dbus calls.
+ *
+ * @return true if GNOME appears to be active, false otherwise.
+ */
+static bool detect_gnome(void)
+{
+  const char* desktop = getenv("XDG_SESSION_DESKTOP");
+  return (desktop != NULL && strstr(desktop, "gnome") != NULL);
+}
+
+/* ── XKB session initialization ─────────────────────────────────────── */
+
+/** @brief Initialise the full XKB session.
+ *
+ * Performs the following steps in order:
+ * 1. Opens the default X11 display via XOpenDisplay().
+ * 2. Queries the XKB extension version and capability.
+ * 3. Creates an xkbcommon context and builds a default keymap from names.
+ * 4. Opens an XCB connection and sets up the XKB extension on it.
+ * 5. Retrieves the core keyboard device ID.
+ * 6. Builds a live keymap from that X11 device (this is the authoritative
+ *    source of layout information).
+ *
+ * On any failure the partially initialised session is cleaned up via
+ * xkb_session_free() before returning EXIT_FAILURE.
+ *
+ * @param[out] session  Populated session structure (must not be NULL).
+ * @return EXIT_SUCCESS on success, EXIT_FAILURE on error.
+ */
+static int xkb_session_init(xkb_session_t* session)
+{
+  assert(session != NULL);
+  memset(session, 0, sizeof(*session));
+
+  /* Open primary X11 display */
+  char* display_name = "";
+  session->display = XOpenDisplay(display_name);
+  if (session->display == NULL)
+  {
+    debug_err("init", "display_open_failed", "");
+    return EXIT_FAILURE;
+  }
+  debug_msgnl("init", "display_opened", "");
+
+  /* Query XKB extension */
+  int32_t opcode_rtrn, event_rtrn, error_rtrn;
+  int32_t major = XkbMajorVersion;
+  int32_t minor = XkbMinorVersion;
+
+  if (XkbQueryExtension(session->display,
+                        &opcode_rtrn,
+                        &event_rtrn,
+                        &error_rtrn,
+                        &major,
+                        &minor) != True)
+  {
+    debug_err("init", "xkb_query_failed", "");
+    xkb_session_free(session);
+    return EXIT_FAILURE;
+  }
+  debug_msgnl("init", "xkb_queried", "opcode=%d event=%d error=%d",
+              opcode_rtrn, event_rtrn, error_rtrn);
+
+  /* Create xkbcommon context */
+  session->context = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
+  if (session->context == NULL)
+  {
+    debug_err("init", "context_create_failed", "");
+    xkb_session_free(session);
+    return EXIT_FAILURE;
+  }
+
+  /* Build default keymap */
+  session->keymap = xkb_keymap_new_from_names(session->context,
+                                              NULL,
+                                              XKB_KEYMAP_COMPILE_NO_FLAGS);
+  if (session->keymap == NULL)
+  {
+    debug_err("init", "keymap_create_failed", "");
+    xkb_session_free(session);
+    return EXIT_FAILURE;
+  }
+
+  xkb_layout_index_t num_layouts = xkb_keymap_num_layouts(session->keymap);
+  debug_msgnl("init", "default_keymap_layouts", "count=%d", num_layouts);
+
+  /* Connect via XCB */
+  session->connection = xcb_connect(NULL, NULL);
+  if (session->connection == NULL)
+  {
+    debug_err("init", "xcb_connect_failed", "");
+    xkb_session_free(session);
+    return EXIT_FAILURE;
+  }
+  debug_msgnl("init", "xcb_connected", "");
+
+  /* Setup XKB extension on XCB */
+  uint16_t major_out, minor_out;
+  uint8_t  base_event, base_error;
+
+  int32_t ret = xkb_x11_setup_xkb_extension(session->connection,
+                                            XKB_X11_MIN_MAJOR_XKB_VERSION,
+                                            XKB_X11_MIN_MINOR_XKB_VERSION,
+                                            XKB_X11_SETUP_XKB_EXTENSION_NO_FLAGS,
+                                            &major_out,
+                                            &minor_out,
+                                            &base_event,
+                                            &base_error);
+  if (ret != 1)
+  {
+    debug_msgnl("init", "xkb_setup_failed", "ret=%d", ret);
+    xkb_session_free(session);
+    return EXIT_FAILURE;
+  }
+  debug_msgnl("init", "xkb_setup_done",
+              "version=%u.%u event_base=%u error_base=%u",
+              major_out, minor_out, base_event, base_error);
+
+  /* Get core keyboard device ID */
+  int32_t device_id = xkb_x11_get_core_keyboard_device_id(session->connection);
+  if (device_id == -1)
+  {
+    debug_err("init", "core_kbd_device_failed", "");
+    xkb_session_free(session);
+    return EXIT_FAILURE;
+  }
+  debug_msgnl("init", "core_kbd_device", "id=%d", device_id);
+
+  /* Build keymap from X11 device */
+  session->x11_keymap = xkb_x11_keymap_new_from_device(session->context,
+                                                       session->connection,
+                                                       device_id,
+                                                       XKB_KEYMAP_COMPILE_NO_FLAGS);
+  if (session->x11_keymap == NULL)
+  {
+    debug_err("init", "x11_keymap_failed", "");
+    xkb_session_free(session);
+    return EXIT_FAILURE;
+  }
+
+  session->num_layouts = xkb_keymap_num_layouts(session->x11_keymap);
+  debug_msgnl("init", "x11_keymap_layouts", "count=%d", session->num_layouts);
+
+  /* Log all layouts */
+  for (xkb_layout_index_t i = 0; i < session->num_layouts; i++)
+  {
+    debug_msgnl("init", "layout",
+                "index=%d name=%s",
+                i,
+                xkb_keymap_layout_get_name(session->x11_keymap, i));
+  }
+
+  return EXIT_SUCCESS;
+}
+
+/* ── XKB session cleanup ────────────────────────────────────────────── */
+
+/** @brief Release all resources held by an XKB session.
+ *
+ * Unrefs keymaps and context, disconnects the XCB connection, and closes
+ * the X11 display. Safe to call on a partially initialised or fully zeroed
+ * session — every pointer is checked before use.
+ *
+ * @param[in,out] session  Session to release (must not be NULL).
+ */
+static void xkb_session_free(xkb_session_t* session)
+{
+  assert(session != NULL);
+
+  if (session->x11_keymap != NULL)
+  {
+    xkb_keymap_unref(session->x11_keymap);
+  }
+  if (session->keymap != NULL)
+  {
+    xkb_keymap_unref(session->keymap);
+  }
+  if (session->context != NULL)
+  {
+    xkb_context_unref(session->context);
+  }
+  if (session->connection != NULL)
+  {
+    xcb_disconnect(session->connection);
+  }
+  if (session->display != NULL)
+  {
+    XCloseDisplay(session->display);
+  }
+}
+
+/* ── main ───────────────────────────────────────────────────────────── */
+
+/** @brief Program entry point.
+ *
+ * Delegates all argument parsing and action dispatch to options_handler().
+ * If the handler returns an error code, logs a debug message before exiting.
+ *
+ * @param[in]  argc Argument count.
+ * @param[in]  argv Argument vector.
+ * @return EXIT_SUCCESS on success, EXIT_FAILURE on error.
+ */
+int main(int argc,
+         const char* argv[])
+{
+  if (options_handler(argc, argv) != EXIT_SUCCESS)
+  {
+    debug_err("main", "handler_error", "");
+    return EXIT_FAILURE;
+  }
+
+  return EXIT_SUCCESS;
+}
+
+/* ── Options handler ────────────────────────────────────────────────── */
+
+/*! * @brief Process program options and invoke corresponding actions.
+ *
+ * Uses getopt_long for argument parsing. Sets g_debug_flag when -d/--debug
+ * is provided. With no arguments, defaults to switching to the next layout.
+ *
+ * @param[in]  argc Argument count.
+ * @param[in]  argv Argument vector.
+ * @return EXIT_SUCCESS on success, EXIT_FAILURE on error.
+ */
+static int options_handler(int argc,
+                           const char* argv[])
+{
+  assert(argv != NULL);
+
+  /* ── Pre-scan for --gnome/-g to allow override before blocking ─ */
+
+  for (int i = 1; i < argc; i++)
+  {
+    if (strcmp(argv[i], "-g") == 0 || strcmp(argv[i], "--gnome") == 0)
+    {
+      g_gnome_override = true;
+      break;
+    }
+  }
+
+  /* ── Early GNOME detection — before any X11 init or action ───── */
+
+  if (!g_gnome_override && detect_gnome())
+  {
+    fprintf(stderr,
+            "wxkb-switch: GNOME detected. Layout switching is not "
+            "supported under GNOME because its settings-daemon manages "
+            "layouts independently and may override external changes.\n"
+            "Use -g/--gnome to force execution anyway.\n");
+    return EXIT_FAILURE;
+  }
+
+  debug_msgnl("cli", "args_count", "argc=%d", argc);
+
+  static struct option long_options[] =
+  {
+    { "debug",   no_argument, 0, 'd' },
+    { "gnome",   no_argument, 0, 'g' },
+    { "help",    no_argument, 0, 'h' },
+    { "next",    no_argument, 0, 'n' },
+    { "prev",    no_argument, 0, 'p' },
+    { "list",    no_argument, 0, 'l' },
+    { "version", no_argument, 0, 'v' },
+    { 0, 0, 0, 0 }
+  };
+
   int32_t option_index = 0;
 
   while (true)
   {
-    static struct option long_options[] =
-    {
-      {"debug",   no_argument,  0,  'd' },
-      {"help",    no_argument,  0,  'h' },
-      {"next",    no_argument,  0,  'n' },
-      {"prev",    no_argument,  0, 	'p' },
-      {"list",    no_argument,  0,  'l' },
-      {"version", no_argument,  0,  'v' },
-      {0, 0, 0, 0}
-    };
-
-		int32_t c = getopt_long(argc, 
-                            (char* const*)argv, 
-                            "dhnplv",
-                            long_options, 
+    int32_t c = getopt_long(argc,
+                            (char* const*)argv,
+                            "dghnplv",
+                            long_options,
                             &option_index);
-    /* Detect the end of the options. */
-		if (c == -1)
-    {      
-      // return fro the cicle
+
+    if (c == -1)
+    {
       break;
     }
-    
+
     switch (c)
     {
       case 0:
-			{
-        /* If this option set a flag, do nothing else now. */
+      {
         if (long_options[option_index].flag != 0)
         {
           break;
         }
-        debug_msg ("option %s", long_options[option_index].name);
-        if (optarg)
+        debug_msg("option %s", long_options[option_index].name);
+        if (optarg != NULL)
         {
-          debug_msg (" with arg %s", optarg);
+          debug_msg(" with arg %s", optarg);
         }
-        debug_msg ("\n");
       }
-			break;
+      break;
 
       case 'd':
       {
-        debug_flag = true;
+        g_debug_flag = true;
+        debug_msgnl("cli", "debug_enabled", "");
+      }
+      break;
+
+      case 'g':
+      {
+        g_gnome_override = true;
+        debug_msgnl("cli", "gnome_override_enabled", "");
       }
       break;
 
@@ -145,6 +514,7 @@ options_handler(int32_t     argc,
         puts("Usage: wxkb-switch [options]");
         puts("Options:");
         puts("  -h, --help            Display this help message.");
+        puts("  -g, --gnome           Force execution under GNOME.");
         puts("  -n, --next            Set next xkb layout.");
         puts("  -p, --prev            Set previous xkb layout.");
         puts("  -l, --list            List available layouts.");
@@ -155,657 +525,204 @@ options_handler(int32_t     argc,
         puts("man wxkb-switch");
         puts("sudo actkbd --help");
         puts("man xkb-switch");
-        puts("man openswitcher");
       }
       break;
 
-      // next group
       case 'n':
       {
-        if (xkb_groups_lock_next() != 0)
+        if (xkb_groups_lock(XKB_LOCK_NEXT) != EXIT_SUCCESS)
         {
-          debug_msgnl("xkb_groups_lock_next() error occurred")
-          return -1;
+          debug_err("cli", "next_failed", "");
+          return EXIT_FAILURE;
         }
       }
       break;
 
-      // previos group
       case 'p':
       {
-        if (xkb_groups_lock_prev() != 0)
+        if (xkb_groups_lock(XKB_LOCK_PREV) != EXIT_SUCCESS)
         {
-          debug_msgnl("xkb_groups_lock_prev() error occurred")
-          return -1;
+          debug_err("cli", "prev_failed", "");
+          return EXIT_FAILURE;
         }
       }
       break;
 
-      // list layouts
       case 'l':
       {
-        if (xkb_groups_list() != 0)
+        if (xkb_groups_list() != EXIT_SUCCESS)
         {
-          debug_msgnl("xkb_groups_list() error occurred")
-          return -1;
+          debug_err("cli", "list_failed", "");
+          return EXIT_FAILURE;
         }
       }
       break;
-      
+
       case 'v':
       {
         puts(WXKBSWITCH_VERSION);
       }
       break;
-      
+
       case '?':
       {
-        /* getopt_long already printed an error message. */
+        /* getopt_long already printed an error message */
+        return EXIT_FAILURE;
       }
-      break;
 
       default:
       {
-        abort ();
+        abort();
       }
     }
   }
 
-  // if no arguments
+  /* Default action: switch to next layout when no options given */
   if (argc == 1)
   {
-    if (xkb_groups_lock_next() != 0)
+    debug_msgnl("cli", "default_action", "action=next");
+    if (xkb_groups_lock(XKB_LOCK_NEXT) != EXIT_SUCCESS)
     {
-      debug_msgnl("xkb_groups_lock_next() error occurred")
-      return -1;
+      debug_err("cli", "next_failed", "");
+      return EXIT_FAILURE;
     }
   }
 
-	return 0;
+  return EXIT_SUCCESS;
 }
 
-/*!
-* @brief set layout to next
-*
-* This function sets keyboard group to next
-* if next is more then max group index
-* then group sets to first group index i.e. 0
-* Implicit uses debug_flag
-* @return 0 if Ok and -1 if error
-*/
-int32_t
-xkb_groups_lock_next(void)
+/* ── Unified lock helper ───────────────────────────────────────────── */
+
+/*! * @brief Lock keyboard group in the given direction.
+ *
+ * Shared implementation for next/prev layout switching. Calculates the
+ * target group with wrap-around semantics, locks it, and verifies.
+ *
+ * @param[in] dir    Direction: XKB_LOCK_NEXT or XKB_LOCK_PREV.
+ * @return EXIT_SUCCESS on success, EXIT_FAILURE on error.
+ */
+static int xkb_groups_lock(xkb_lock_direction_t dir)
 {
-  char* displayName = "";
-  int32_t eventCode;
-  int32_t errorReturn;
-  int32_t major = XkbMajorVersion;
-  int32_t minor = XkbMinorVersion;
-  int32_t reasonReturn;
+  const char* tag = (dir == XKB_LOCK_NEXT) ? "next" : "prev";
 
-  Display* x11_display = XOpenDisplay(displayName);
-  if (x11_display == NULL)
-  {
-    debug_msgnl("xkb_display ERROR");
-    return -1;
-  }
-  
-  int32_t opcode_rtrn;
-  int32_t event_rtrn;
-  int32_t error_rtrn;
-  if (XkbQueryExtension(x11_display, 
-                        &opcode_rtrn, 
-                        &event_rtrn, 
-                        &error_rtrn, 
-                        &major, 
-                        &minor)
-  != True)
-  {
-    debug_msgnl("XkbQueryExtension() error occurred")
-    XCloseDisplay(x11_display);
-    return -1;
-  }
-  
+  debug_msgnl("switch", "%s_start", tag);
 
-
-  Display* xkb_display = XkbOpenDisplay(displayName, 
-                                        &eventCode, 
-                                        &errorReturn, 
-                                        &major, 
-                                        &minor, 
-                                        &reasonReturn);
-  if (xkb_display == NULL)
+  xkb_session_t session;
+  if (xkb_session_init(&session) != EXIT_SUCCESS)
   {
-    debug_msgnl("Xkb xkb_display ERROR");
-    XCloseDisplay(x11_display);
-    return -1;
+    return EXIT_FAILURE;
   }
 
-	struct xkb_context* context = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
-	if (context == NULL)
-	{
-    debug_msgnl("No context for libxkbcommon");
-    XCloseDisplay(xkb_display);
-    XCloseDisplay(x11_display);
-    return -1;
-	}
-
-	struct xkb_keymap* keymap = xkb_keymap_new_from_names(context, 
-                                                        NULL, 
-                                                        XKB_KEYMAP_COMPILE_NO_FLAGS);
-	if (keymap == NULL)
-	{
-    debug_msgnl("No keymap for libxkbcommon");
-    XCloseDisplay(xkb_display);
-    XCloseDisplay(x11_display);
-    return -1;
-	}
-		
-	xkb_layout_index_t num_layouts = xkb_keymap_num_layouts(keymap);
-
-	debug_msg("num_layouts: %d\n", num_layouts);
-
-	xcb_connection_t* connection = xcb_connect(NULL, NULL);
-	if (connection == NULL)
-	{
-    debug_msgnl("No connection for xcb");
-    XCloseDisplay(xkb_display);
-    XCloseDisplay(x11_display);
-    return -1;
-	}
-
-	uint16_t major_xkb_version_out;
-	uint16_t minor_xkb_version_out;
-	uint8_t base_event_out;
-	uint8_t base_error_out;
-
-	int32_t ret 
-  = xkb_x11_setup_xkb_extension(connection,
-                                XKB_X11_MIN_MAJOR_XKB_VERSION,
-                                XKB_X11_MIN_MINOR_XKB_VERSION,
-                                XKB_X11_SETUP_XKB_EXTENSION_NO_FLAGS,
-                                &major_xkb_version_out,
-                                &minor_xkb_version_out,
-                                &base_event_out,
-                                &base_error_out);
-  if (ret != 1)
+  XkbStateRec state;
+  if (XkbGetState(session.display, XkbUseCoreKbd, &state) != Success)
   {
-    debug_msgnl("xkb_x11_setup_xkb_extension() error occurred")
-    goto error;
+    debug_err("switch", "get_state_failed", "");
+    xkb_session_free(&session);
+    return EXIT_FAILURE;
   }
 
-	int32_t core_keyboard_device_id = xkb_x11_get_core_keyboard_device_id(connection);
-  if (core_keyboard_device_id == -1)
+  debug_msgnl("switch", tag,
+               "group=%d base_group=%d locked_group=%d latched_group=%d",
+               state.group, state.base_group,
+               state.locked_group, state.latched_group);
+
+  /* Calculate target group with wrap-around */
+  xkb_layout_index_t target;
+
+  switch (dir)
   {
-    debug_msgnl("xkb_x11_get_core_keyboard_device_id() error occurred")
-    goto error;
-  }
-  
-
-	struct xkb_keymap* x11_keymap 
-  = xkb_x11_keymap_new_from_device( context, 
-                                    connection, 
-                                    core_keyboard_device_id, 
-                                    XKB_KEYMAP_COMPILE_NO_FLAGS);
-  if (x11_keymap == NULL)
-	{
-    debug_msgnl("No x11_keymap for libxkbcommon-x11");
-    goto error;
-	}
-	
-	xkb_layout_index_t num_layouts_x11 = xkb_keymap_num_layouts(x11_keymap);
-	debug_msg("num_layouts_x11: %d\n", num_layouts_x11);
-  debug_msgnl("")
-
-  // only for Gnome decrease num_layouts_x11, Gnome little buggy :)
-  if (system("env | grep XDG_SESSION_DESKTOP | grep gnome > /dev/null")
-  ==  0)
-  {
-    num_layouts_x11 -= 1;
-  }
-
-	for (xkb_layout_index_t i = 0; i < num_layouts_x11; i++)
-	{
-		debug_msg("i: %d layout: %s\n", i, xkb_keymap_layout_get_name(x11_keymap, i)); 
-	}
-  debug_msgnl("")
-
-  XkbStateRec state_return;
-  if (XkbGetState(xkb_display, XkbUseCoreKbd, &state_return)
-  != Success)
-  {
-    debug_msgnl("XkbGetState() error occurred")
-    goto error;
-  }
-
-  debug_msgnl("Before switch to next group:")
-  debug_msg("state_return->group:          %d\n",  state_return.group);
-  debug_msg("state_return->base_group:     %d\n",  state_return.base_group);
-  debug_msg("state_return->locked_group:   %d\n",  state_return.locked_group);
-  debug_msg("state_return->latched_group:  %d\n",  state_return.latched_group);
-  debug_msgnl("")
-
-  // if next layout index more then MAX layout index 
-  if (state_return.locked_group+1 > (num_layouts_x11-1))
-  {
-    // sets first layout
-    if (XkbLockGroup(xkb_display, XkbUseCoreKbd, 0)
-    !=  True)
+    case XKB_LOCK_NEXT:
     {
-      debug_msgnl("XkbLockGroup() error occurred")
-      goto error;
+      target = state.locked_group + 1;
+      if (target >= session.num_layouts)
+      {
+        target = 0;
+        debug_msgnl("switch", "wrap_to_first", "");
+      }
     }
-  }
-  else
-  {
-    // sets next layout
-	  if (XkbLockGroup(xkb_display, XkbUseCoreKbd, state_return.locked_group+1) 
-    !=  True)
+    break;
+
+    case XKB_LOCK_PREV:
     {
-      debug_msgnl("XkbLockGroup() error occurred")
-      goto error;
+      if (state.locked_group == 0)
+      {
+        target = session.num_layouts - 1;
+        debug_msgnl("switch", "wrap_to_last", "group=%d", target);
+      }
+      else
+      {
+        target = state.locked_group - 1;
+      }
     }
-  }	
-
-  if (XkbGetState(xkb_display, XkbUseCoreKbd, &state_return)
-  != Success)
-  {
-    debug_msgnl("XkbGetState() error occurred")
-    goto error;
+    break;
   }
 
-  debug_msgnl("After switch to next group:")
-  debug_msg("state_return->group:          %d\n",  state_return.group);
-  debug_msg("state_return->base_group:     %d\n",  state_return.base_group);
-  debug_msg("state_return->locked_group:   %d\n",  state_return.locked_group);
-  debug_msg("state_return->latched_group:  %d\n",  state_return.latched_group);
-  debug_msgnl("")
+  if (XkbLockGroup(session.display, XkbUseCoreKbd, target) != True)
+  {
+    debug_err("switch", "lock_group_failed", "target=%d", target);
+    xkb_session_free(&session);
+    return EXIT_FAILURE;
+  }
+  debug_msgnl("switch", "locked", "group=%d", target);
 
-  return 0;
+  /* Verify new state */
+  if (XkbGetState(session.display, XkbUseCoreKbd, &state) == Success)
+  {
+    debug_msgnl("switch", tag,
+                "group=%d base_group=%d locked_group=%d latched_group=%d",
+                state.group, state.base_group,
+                state.locked_group, state.latched_group);
+  }
 
-error:
-  xcb_disconnect(connection);
-  XCloseDisplay(xkb_display);
-  XCloseDisplay(x11_display);
-  return -1;
+  debug_msgnl("switch", "%s_done", tag);
+
+  xkb_session_free(&session);
+  return EXIT_SUCCESS;
 }
 
-/*!
-* @brief set layout to next
-*
-* This function sets keyboard group to previos
-* if previos is less then min group index
-* then group sets to last group index i.e. 0
-* Implicit uses debug_flag
-* @return 0 if Ok and -1 if error
-*/
-int32_t
-xkb_groups_lock_prev(void)
+/* ── List layouts ───────────────────────────────────────────────────── */
+
+/*! * @brief Print all available layouts, marking the current one.
+ *
+ * Output format: "index: name" with " <---current layout" appended to
+ * the active layout line.
+ *
+ * @return EXIT_SUCCESS on success, EXIT_FAILURE on error.
+ */
+static int xkb_groups_list(void)
 {
-  char* displayName = "";
-  int32_t eventCode;
-  int32_t errorReturn;
-  int32_t major = XkbMajorVersion;
-  int32_t minor = XkbMinorVersion;
-  int32_t reasonReturn;
+  debug_msgnl("list", "start", "");
 
-  Display* x11_display = XOpenDisplay(displayName);
-  if (x11_display == NULL)
+  xkb_session_t session;
+  if (xkb_session_init(&session) != EXIT_SUCCESS)
   {
-    debug_msgnl("xkb_display ERROR");
-    return -1;
-  }
-  
-  int32_t opcode_rtrn;
-  int32_t event_rtrn;
-  int32_t error_rtrn;
-  if (XkbQueryExtension(x11_display, 
-                        &opcode_rtrn, 
-                        &event_rtrn, 
-                        &error_rtrn, 
-                        &major, 
-                        &minor)
-  != True)
-  {
-    debug_msgnl("XkbQueryExtension() error occurred")
-    XCloseDisplay(x11_display);
-    return -1;
-  }
-  
-
-
-  Display* xkb_display = XkbOpenDisplay(displayName, 
-                                        &eventCode, 
-                                        &errorReturn, 
-                                        &major, 
-                                        &minor, 
-                                        &reasonReturn);
-  if (xkb_display == NULL)
-  {
-    debug_msgnl("Xkb xkb_display ERROR");
-    XCloseDisplay(x11_display);
-    return -1;
+    return EXIT_FAILURE;
   }
 
-	struct xkb_context* context = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
-	if (context == NULL)
-	{
-    debug_msgnl("No context for libxkbcommon");
-    XCloseDisplay(xkb_display);
-    XCloseDisplay(x11_display);
-    return -1;
-	}
-
-	struct xkb_keymap* keymap = xkb_keymap_new_from_names(context, 
-                                                        NULL, 
-                                                        XKB_KEYMAP_COMPILE_NO_FLAGS);
-	if (keymap == NULL)
-	{
-    debug_msgnl("No keymap for libxkbcommon");
-    XCloseDisplay(xkb_display);
-    XCloseDisplay(x11_display);
-    return -1;
-	}
-		
-	xkb_layout_index_t num_layouts = xkb_keymap_num_layouts(keymap);
-
-	debug_msg("num_layouts: %d\n", num_layouts);
-
-	xcb_connection_t* connection = xcb_connect(NULL, NULL);
-	if (connection == NULL)
-	{
-    debug_msgnl("No connection for xcb");
-    XCloseDisplay(xkb_display);
-    XCloseDisplay(x11_display);
-    return -1;
-	}
-
-	uint16_t major_xkb_version_out;
-	uint16_t minor_xkb_version_out;
-	uint8_t base_event_out;
-	uint8_t base_error_out;
-
-	int32_t ret 
-  = xkb_x11_setup_xkb_extension(connection,
-                                XKB_X11_MIN_MAJOR_XKB_VERSION,
-                                XKB_X11_MIN_MINOR_XKB_VERSION,
-                                XKB_X11_SETUP_XKB_EXTENSION_NO_FLAGS,
-                                &major_xkb_version_out,
-                                &minor_xkb_version_out,
-                                &base_event_out,
-                                &base_error_out);
-  if (ret != 1)
+  XkbStateRec state;
+  if (XkbGetState(session.display, XkbUseCoreKbd, &state) != Success)
   {
-    debug_msgnl("xkb_x11_setup_xkb_extension() error occurred")
-    goto error;
+    debug_err("list", "get_state_failed", "");
+    xkb_session_free(&session);
+    return EXIT_FAILURE;
   }
 
-	int32_t core_keyboard_device_id = xkb_x11_get_core_keyboard_device_id(connection);
-  if (core_keyboard_device_id == -1)
+  debug_msgnl("list", "current_group", "group=%d", state.locked_group);
+
+  for (xkb_layout_index_t i = 0; i < session.num_layouts; i++)
   {
-    debug_msgnl("xkb_x11_get_core_keyboard_device_id() error occurred")
-    goto error;
-  }
-  
-
-	struct xkb_keymap* x11_keymap 
-  = xkb_x11_keymap_new_from_device( context, 
-                                    connection, 
-                                    core_keyboard_device_id, 
-                                    XKB_KEYMAP_COMPILE_NO_FLAGS);
-  if (x11_keymap == NULL)
-	{
-    debug_msgnl("No x11_keymap for libxkbcommon-x11");
-    goto error;
-	}
-	
-	xkb_layout_index_t num_layouts_x11 = xkb_keymap_num_layouts(x11_keymap);
-	debug_msg("num_layouts_x11: %d\n", num_layouts_x11);
-  debug_msgnl("")
-
-  // only for Gnome decrease num_layouts_x11, Gnome little buggy :)
-  if (system("env | grep XDG_SESSION_DESKTOP | grep gnome > /dev/null")
-  ==  0)
-  {
-    num_layouts_x11 -= 1;
-  }
-
-	for (xkb_layout_index_t i = 0; i < num_layouts_x11; i++)
-	{
-		debug_msg("i: %d layout: %s\n", i, xkb_keymap_layout_get_name(x11_keymap, i)); 
-	}
-  debug_msgnl("")
-
-  XkbStateRec state_return;
-  if (XkbGetState(xkb_display, XkbUseCoreKbd, &state_return)
-  != Success)
-  {
-    debug_msgnl("XkbGetState() error occurred")
-    goto error;
-  }
-
-  debug_msgnl("Before switch to next group:")
-  debug_msg("state_return->group:          %d\n",  state_return.group);
-  debug_msg("state_return->base_group:     %d\n",  state_return.base_group);
-  debug_msg("state_return->locked_group:   %d\n",  state_return.locked_group);
-  debug_msg("state_return->latched_group:  %d\n",  state_return.latched_group);
-  debug_msgnl("")
-
-  // if prev layout index less then MIN layout index (0)
-  if (state_return.locked_group-1 < 0)
-  {
-    // sets last layout
-    if (XkbLockGroup(xkb_display, XkbUseCoreKbd, num_layouts_x11-1) 
-    !=  True)
+    const char* name = xkb_keymap_layout_get_name(session.x11_keymap, i);
+    if (i == state.locked_group)
     {
-      debug_msgnl("XkbLockGroup() error occurred")
-      return -1;
-    }
-  }
-  else
-  {
-    // sets previos layout
-	  if (XkbLockGroup(xkb_display, XkbUseCoreKbd, 0) 
-    !=  True)
-    {
-      debug_msgnl("XkbLockGroup() error occurred")
-      return -1;
-    }
-  }		
-
-  if (XkbGetState(xkb_display, XkbUseCoreKbd, &state_return)
-  != Success)
-  {
-    debug_msgnl("XkbGetState() error occurred")
-    goto error;
-  }
-
-  debug_msgnl("After switch to next group:")
-  debug_msg("state_return->group:          %d\n",  state_return.group);
-  debug_msg("state_return->base_group:     %d\n",  state_return.base_group);
-  debug_msg("state_return->locked_group:   %d\n",  state_return.locked_group);
-  debug_msg("state_return->latched_group:  %d\n",  state_return.latched_group);
-  debug_msgnl("")
-
-  return 0;
-
-error:
-  xcb_disconnect(connection);
-  XCloseDisplay(xkb_display);
-  XCloseDisplay(x11_display);
-  return -1;
-}
-
-/*!
-* @brief list layouts
-*
-* This function lists avalible and current layouts
-* Implicit uses debug_flag
-* @return 0 if Ok and -1 if error
-*/
-int32_t
-xkb_groups_list(void)
-{
-  char* displayName = "";
-  int32_t eventCode;
-  int32_t errorReturn;
-  int32_t major = XkbMajorVersion;
-  int32_t minor = XkbMinorVersion;
-  int32_t reasonReturn;
-
-  Display* x11_display = XOpenDisplay(displayName);
-  if (x11_display == NULL)
-  {
-    debug_msgnl("xkb_display ERROR");
-    return -1;
-  }
-  
-  int32_t opcode_rtrn;
-  int32_t event_rtrn;
-  int32_t error_rtrn;
-  if (XkbQueryExtension(x11_display, 
-                        &opcode_rtrn, 
-                        &event_rtrn, 
-                        &error_rtrn, 
-                        &major, 
-                        &minor)
-  != True)
-  {
-    debug_msgnl("XkbQueryExtension() error occurred")
-    XCloseDisplay(x11_display);
-    return -1;
-  }
-  
-
-
-  Display* xkb_display = XkbOpenDisplay(displayName, 
-                                        &eventCode, 
-                                        &errorReturn, 
-                                        &major, 
-                                        &minor, 
-                                        &reasonReturn);
-  if (xkb_display == NULL)
-  {
-    debug_msgnl("Xkb xkb_display ERROR");
-    XCloseDisplay(x11_display);
-    return -1;
-  }
-
-	struct xkb_context* context = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
-	if (context == NULL)
-	{
-    debug_msgnl("No context for libxkbcommon");
-    XCloseDisplay(xkb_display);
-    XCloseDisplay(x11_display);
-    return -1;
-	}
-
-	struct xkb_keymap* keymap = xkb_keymap_new_from_names(context, 
-                                                        NULL, 
-                                                        XKB_KEYMAP_COMPILE_NO_FLAGS);
-	if (keymap == NULL)
-	{
-    debug_msgnl("No keymap for libxkbcommon");
-    XCloseDisplay(xkb_display);
-    XCloseDisplay(x11_display);
-    return -1;
-	}
-		
-	xkb_layout_index_t num_layouts = xkb_keymap_num_layouts(keymap);
-
-	debug_msg("num_layouts: %d\n", num_layouts);
-
-	xcb_connection_t* connection = xcb_connect(NULL, NULL);
-	if (connection == NULL)
-	{
-    debug_msgnl("No connection for xcb");
-    XCloseDisplay(xkb_display);
-    XCloseDisplay(x11_display);
-    return -1;
-	}
-
-	uint16_t major_xkb_version_out;
-	uint16_t minor_xkb_version_out;
-	uint8_t base_event_out;
-	uint8_t base_error_out;
-
-	int32_t ret 
-  = xkb_x11_setup_xkb_extension(connection,
-                                XKB_X11_MIN_MAJOR_XKB_VERSION,
-                                XKB_X11_MIN_MINOR_XKB_VERSION,
-                                XKB_X11_SETUP_XKB_EXTENSION_NO_FLAGS,
-                                &major_xkb_version_out,
-                                &minor_xkb_version_out,
-                                &base_event_out,
-                                &base_error_out);
-  if (ret != 1)
-  {
-    debug_msgnl("xkb_x11_setup_xkb_extension() error occurred")
-    goto error;
-  }
-
-	int32_t core_keyboard_device_id = xkb_x11_get_core_keyboard_device_id(connection);
-  if (core_keyboard_device_id == -1)
-  {
-    debug_msgnl("xkb_x11_get_core_keyboard_device_id() error occurred")
-    goto error;
-  }
-  
-
-	struct xkb_keymap* x11_keymap 
-  = xkb_x11_keymap_new_from_device( context, 
-                                    connection, 
-                                    core_keyboard_device_id, 
-                                    XKB_KEYMAP_COMPILE_NO_FLAGS);
-  if (x11_keymap == NULL)
-	{
-    debug_msgnl("No x11_keymap for libxkbcommon-x11");
-    goto error;
-	}
-	
-	xkb_layout_index_t num_layouts_x11 = xkb_keymap_num_layouts(x11_keymap);
-	debug_msg("num_layouts_x11: %d\n", num_layouts_x11);
-  debug_msgnl("")
-
-  // only for Gnome decrease num_layouts_x11, Gnome little buggy :)
-  if (system("env | grep XDG_SESSION_DESKTOP | grep gnome > /dev/null")
-  ==  0)
-  {
-    num_layouts_x11 -= 1;
-  }
-
-  XkbStateRec state_return;
-  if (XkbGetState(xkb_display, XkbUseCoreKbd, &state_return)
-  != Success)
-  {
-    debug_msgnl("XkbGetState() error occurred")
-    goto error;
-  }
-
-  debug_msg("state_return->group:          %d\n",  state_return.group);
-  debug_msg("state_return->base_group:     %d\n",  state_return.base_group);
-  debug_msg("state_return->locked_group:   %d\n",  state_return.locked_group);
-  debug_msg("state_return->latched_group:  %d\n",  state_return.latched_group);
-  debug_msgnl("")
-
-  for (xkb_layout_index_t i = 0; i < num_layouts_x11; i++)
-	{
-		printf("index: %d layout name: %s", i, xkb_keymap_layout_get_name(x11_keymap, i)); 
-    if (i == state_return.locked_group)
-    {
-      printf(" <---current layout\n");
+      printf("%d: %s <--- current layout\n", i, name);
     }
     else
     {
-      printf("\n");
+      printf("%d: %s\n", i, name);
     }
-	}
+  }
 
-  return 0;
-
-error:
-  xcb_disconnect(connection);
-  XCloseDisplay(xkb_display);
-  XCloseDisplay(x11_display);
-  return -1;
+  debug_msgnl("list", "done", "");
+  xkb_session_free(&session);
+  return EXIT_SUCCESS;
 }

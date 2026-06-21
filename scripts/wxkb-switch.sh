@@ -7,7 +7,7 @@ _wxkb-switch() {
 
     cur="${COMP_WORDS[COMP_CWORD]}"
     prev="${COMP_WORDS[COMP_CWORD-1]}"
-    opts="--help --version --debug --next --prev --list"
+    opts="--help --version --debug --gnome --next --prev --list"
 	
 	
 

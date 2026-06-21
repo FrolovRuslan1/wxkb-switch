@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.31)
 
-project(WXKB_SWITCH VERSION 1.0.3 LANGUAGES C)
+project(WXKB_SWITCH VERSION 1.0.4 LANGUAGES C)
 
 # ── C23 standard with strict warnings ───────────────────────────────
 set(CMAKE_C_STANDARD 23)
@@ -109,14 +109,59 @@ target_link_libraries(wxkb-switch PRIVATE
 # ── Install (GNUInstallDirs for portable paths) ─────────────────────
 include(GNUInstallDirs)
 
+# ── Configurable shell completion directories ────────────────────────
+#
+# These are CACHE variables — override with -D on the CMake command line.
+#
+# The defaults work out-of-the-box for standard prefixes (/usr, /usr/local).
+# For non-standard prefixes or packaging scenarios, you may need to adjust
+# them so that each shell can find the completion files in its expected
+# search path (e.g. zsh $fpath, bash-completion load paths).
+#
+# Examples:
+#
+#   Standard /usr/local install (default):
+#     cmake -S . -B build
+#
+#   System-wide /usr prefix with proper completion paths:
+#     cmake -S . -B build \
+#           -DCMAKE_INSTALL_PREFIX=/usr \
+#           -DWXKB_ZSH_COMPLETION_DIR=/usr/share/zsh/site-functions
+#
+#   Non-standard prefix (e.g. NixOS, chroot):
+#     cmake -S . -B build \
+#           -DCMAKE_INSTALL_PREFIX=/opt/myapp \
+#           -DWXKB_ZSH_COMPLETION_DIR=/usr/share/zsh/site-functions
+#
+set(WXKB_BASH_COMPLETION_DIR
+    "${CMAKE_INSTALL_FULL_SYSCONFDIR}/bash_completion.d"
+    CACHE PATH "Directory for bash completion scripts (default: ${CMAKE_INSTALL_FULL_SYSCONFDIR}/bash_completion.d)"
+)
+set(WXKB_ZSH_COMPLETION_DIR
+    "${CMAKE_INSTALL_FULL_DATAROOTDIR}/zsh/site-functions"
+    CACHE PATH "Directory for zsh completion functions (must be in $fpath; default: ${CMAKE_INSTALL_FULL_DATAROOTDIR}/zsh/site-functions)"
+)
+set(WXKB_FISH_COMPLETION_DIR
+    "${CMAKE_INSTALL_FULL_DATAROOTDIR}/fish/vendor_completions.d"
+    CACHE PATH "Directory for fish completion scripts (default: ${CMAKE_INSTALL_FULL_DATAROOTDIR}/fish/vendor_completions.d)"
+)
+
+# ── Print install summary ────────────────────────────────────────────
+message(STATUS "Install prefix:        ${CMAKE_INSTALL_PREFIX}")
+message(STATUS "  Binary:              ${CMAKE_INSTALL_FULL_BINDIR}/wxkb-switch")
+message(STATUS "  Bash completion:     ${WXKB_BASH_COMPLETION_DIR}/wxkb-switch.sh")
+message(STATUS "  Zsh completion:      ${WXKB_ZSH_COMPLETION_DIR}/_wxkb-switch")
+message(STATUS "  Fish completion:     ${WXKB_FISH_COMPLETION_DIR}/wxkb-switch.fish")
+message(STATUS "  Man page:            ${CMAKE_INSTALL_FULL_MANDIR}/man1/wxkb-switch.1")
+
 # ── Installed file list (used by uninstall target) ───────────────────
 # These paths are computed at configure time from CMAKE_INSTALL_PREFIX.
 # The uninstall target works for the prefix used during configuration.
 set(_WXKB_INSTALL_FILES
     "${CMAKE_INSTALL_FULL_BINDIR}/wxkb-switch"
-    "${CMAKE_INSTALL_FULL_SYSCONFDIR}/bash_completion.d/wxkb-switch.sh"
-    "${CMAKE_INSTALL_FULL_DATAROOTDIR}/zsh/vendor-completions/_wxkb-switch"
-    "${CMAKE_INSTALL_FULL_DATAROOTDIR}/fish/vendor_completions.d/wxkb-switch.fish"
+    "${WXKB_BASH_COMPLETION_DIR}/wxkb-switch.sh"
+    "${WXKB_ZSH_COMPLETION_DIR}/_wxkb-switch"
+    "${WXKB_FISH_COMPLETION_DIR}/wxkb-switch.fish"
     "${CMAKE_INSTALL_FULL_MANDIR}/man1/wxkb-switch.1"
 )
 
@@ -145,23 +190,36 @@ install(TARGETS wxkb-switch
 )
 
 install(PROGRAMS scripts/wxkb-switch.sh
-        DESTINATION ${CMAKE_INSTALL_SYSCONFDIR}/bash_completion.d
+        DESTINATION ${WXKB_BASH_COMPLETION_DIR}
 )
 
 install(FILES scripts/_wxkb-switch
-        DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/zsh/vendor-completions
+        DESTINATION ${WXKB_ZSH_COMPLETION_DIR}
 )
 
 install(FILES scripts/wxkb-switch.fish
-        DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/fish/vendor_completions.d
+        DESTINATION ${WXKB_FISH_COMPLETION_DIR}
 )
 
 install(FILES man/wxkb-switch.1
         DESTINATION ${CMAKE_INSTALL_MANDIR}/man1
 )
 
-# ── CPack (Debian package generation) ───────────────────────────────
+# ── CPack (package generation: DEB, RPM) ────────────────────────────
+
+# Common settings
 set(CPACK_PACKAGE_NAME "wxkb-switch")
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY
+    "Utility for switching keyboard layouts under Wayland window system."
+)
+set(CPACK_PACKAGE_VENDOR "Frolov Ruslan Victorovich <gald.rus@yandex.ru>")
+set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_SOURCE_DIR}/LICENSE")
+set(CPACK_PACKAGE_CONTACT "gald.rus@yandex.ru")
+
+# Source tarball generators
+set(CPACK_SOURCE_GENERATOR "TGZ;ZIP")
+
+# ── Debian (.deb) settings ───────────────────────────────────────────
 set(CPACK_DEBIAN_PACKAGE_MAINTAINER "Frolov Ruslan Victorovich <gald.rus@yandex.ru>")
 set(CPACK_DEBIAN_PACKAGE_SECTION "utils")
 set(CPACK_DEBIAN_PACKAGE_DESCRIPTION
@@ -170,5 +228,13 @@ set(CPACK_DEBIAN_PACKAGE_DESCRIPTION
 set(CPACK_DEBIAN_PACKAGE_DEPENDS
     "libc6, libx11-6, libxkbcommon-x11-0, libxkbfile1, libxcb1"
 )
-set(CPACK_SOURCE_GENERATOR "TGZ;ZIP")
+
+# ── RPM (.rpm) settings ──────────────────────────────────────────────
+set(CPACK_RPM_PACKAGE_LICENSE "MIT")
+set(CPACK_RPM_PACKAGE_GROUP "System Environment/Daemons")
+set(CPACK_RPM_PACKAGE_REQUIRES
+    "libX11, libxkbcommon-x11, libxkbfile, libxcb"
+)
+set(CPACK_RPM_AUTOREQPROVE ON)
+
 include(CPack)
