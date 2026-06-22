@@ -27,7 +27,7 @@ Reads the current XKB configuration directly — no setup required.
 
 Download the latest release from [GitHub Releases](https://github.com/FrolovRuslan1/wxkb-switch/releases):
 ```bash
-wget https://github.com/FrolovRuslan1/wxkb-switch/releases/download/v1.0.4/wxkb-switch-1.0.4-Linux.deb
+wget https://github.com/FrolovRuslan1/wxkb-switch/releases/download/1.0.4/wxkb-switch-1.0.4-Linux.deb
 sudo apt install ./wxkb-switch-1.0.4-Linux.deb
 ```
 
@@ -35,7 +35,7 @@ sudo apt install ./wxkb-switch-1.0.4-Linux.deb
 
 Download the latest release from [GitHub Releases](https://github.com/FrolovRuslan1/wxkb-switch/releases):
 ```bash
-wget https://github.com/FrolovRuslan1/wxkb-switch/releases/download/v1.0.4/wxkb-switch-1.0.4-Linux.x86_64.rpm
+wget https://github.com/FrolovRuslan1/wxkb-switch/releases/download/1.0.4/wxkb-switch-1.0.4-Linux.rpm
 sudo dnf install ./wxkb-switch-1.0.4-Linux.x86_64.rpm
 ```
 
