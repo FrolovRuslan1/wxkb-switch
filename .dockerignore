@@ -1,0 +1,30 @@
+# Build artifacts
+build/
+packages/
+CMakeCache.txt
+cmake_install.cmake
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Git
+.git/
+.github/
+
+# Documentation (not needed for building)
+README.md
+CHANGELOG.md
+
+# Test artifacts
+test-results/
+cov/
+coverage/
+
+# OS files
+.DS_Store
+Thumbs.db
+

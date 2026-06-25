@@ -7,23 +7,6 @@ set(CMAKE_C_STANDARD 23)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_C_EXTENSIONS OFF)
 
-# ── Detect package manager for install hints ────────────────────────
-function(_detect_package_manager VAR)
-    if(EXISTS "/usr/bin/apt")
-        set(${VAR} "apt" PARENT_SCOPE)
-    elseif(EXISTS "/usr/bin/dnf")
-        set(${VAR} "dnf" PARENT_SCOPE)
-    elseif(EXISTS "/usr/bin/pacman")
-        set(${VAR} "pacman" PARENT_SCOPE)
-    elseif(EXISTS "/usr/bin/zypper")
-        set(${VAR} "zypper" PARENT_SCOPE)
-    else()
-        set(${VAR} "unknown" PARENT_SCOPE)
-    endif()
-endfunction()
-
-_detect_package_manager(_PKG_MANAGER)
-
 # ── pkg-config (required for dependency discovery) ──────────────────
 find_package(PkgConfig REQUIRED)
 if(NOT PKG_CONFIG_FOUND)
@@ -33,60 +16,66 @@ if(NOT PKG_CONFIG_FOUND)
     )
 endif()
 
-# ── Helper: pick correct package name for detected manager ───────────
-function(_pick_pkg VAR apt_pkg dnf_pkg pacman_pkg zypper_pkg)
-    if("${_PKG_MANAGER}" STREQUAL "apt")
-        set(${VAR} "${apt_pkg}" PARENT_SCOPE)
-    elseif("${_PKG_MANAGER}" STREQUAL "dnf")
-        set(${VAR} "${dnf_pkg}" PARENT_SCOPE)
-    elseif("${_PKG_MANAGER}" STREQUAL "pacman")
-        set(${VAR} "${pacman_pkg}" PARENT_SCOPE)
-    elseif("${_PKG_MANAGER}" STREQUAL "zypper")
-        set(${VAR} "${zypper_pkg}" PARENT_SCOPE)
-    else()
-        set(${VAR} "${apt_pkg}" PARENT_SCOPE)
-    endif()
-endfunction()
+# ── Detect package manager for install hints (cross-compile safe) ────
+if(EXISTS "/usr/bin/apt")
+    set(_PKG_MANAGER "apt")
+elseif(EXISTS "/usr/bin/dnf")
+    set(_PKG_MANAGER "dnf")
+elseif(EXISTS "/usr/bin/pacman")
+    set(_PKG_MANAGER "pacman")
+elseif(EXISTS "/usr/bin/zypper")
+    set(_PKG_MANAGER "zypper")
+else()
+    set(_PKG_MANAGER "unknown")
+endif()
 
-# ── Helper: check one dependency, fail with install hint ─────────────
-# pc_var  = CMake variable prefix (e.g. X11)
-# pc_name = pkg-config module name  (e.g. x11)
-function(_check_dep pc_var pc_name apt_pkg dnf_pkg pacman_pkg zypper_pkg)
-    pkg_check_modules(${pc_var} IMPORTED_TARGET ${pc_name})
-    if(NOT ${pc_var}_FOUND)
-        _pick_pkg(pkg "${apt_pkg}" "${dnf_pkg}" "${pacman_pkg}" "${zypper_pkg}")
+# ── Dependencies (table-driven for maintainability) ──────────────────
+# Each dep: VAR;PC_NAME;APT_PKG;DNF_PKG;PACMAN_PKG;ZYPPER_PKG
+set(WXKB_DEPS_X11           "x11;libx11-dev;libX11-devel;libx11;libX11-devel")
+set(WXKB_DEPS_XKBFILE       "xkbfile;libxkbfile-dev;libxkbfile-devel;libxkbfile;libxkbfile-devel")
+set(WXKB_DEPS_XKBCOMMON_X11 "xkbcommon-x11;libxkbcommon-x11-dev;xkbcommon-x11-devel;xkbcommon;xkbcommon-x11-devel")
+set(WXKB_DEPS_XCB           "xcb;libxcb1-dev;libxcb-devel;libxcb;libxcb-devel")
 
-        # Build a one-line install command for all deps (fallback)
-        if("${_PKG_MANAGER}" STREQUAL "apt")
-            set(ALL_DEPS_CMD "sudo apt install libx11-dev libxkbfile-dev libxkbcommon-x11-dev libxcb1-dev")
-        elseif("${_PKG_MANAGER}" STREQUAL "dnf")
-            set(ALL_DEPS_CMD "sudo dnf install libX11-devel libxkbfile-devel xkbcommon-x11-devel libxcb-devel")
+# All-in-one install commands per package manager
+set(DEPS_INSTALL_CMD_apt   "sudo apt install libx11-dev libxkbfile-dev libxkbcommon-x11-dev libxcb1-dev")
+set(DEPS_INSTALL_CMD_dnf   "sudo dnf install libX11-devel libxkbfile-devel xkbcommon-x11-devel libxcb-devel")
+set(DEPS_INSTALL_CMD_pacman "sudo pacman -S libx11 libxkbfile xkbcommon libxcb")
+
+foreach(_var IN ITEMS X11 XKBFILE XKBCOMMON_X11 XCB)
+    string(REPLACE ";" " " _dep_str "${WXKB_DEPS_${_var}}")
+    separate_arguments(_dep_list NATIVE_COMMAND ${_dep_str})
+    list(GET _dep_list 0 _pc_name)
+    list(GET _dep_list 1 _apt)
+    list(GET _dep_list 2 _dnf)
+    list(GET _dep_list 3 _pacman)
+    list(GET _dep_list 4 _zypper)
+
+    pkg_check_modules(${_var} IMPORTED_TARGET ${_pc_name})
+    if(NOT ${_var}_FOUND)
+        # Pick package name for detected manager
+        set(_pkg "${_apt}")
+        if("${_PKG_MANAGER}" STREQUAL "dnf")
+            set(_pkg "${_dnf}")
         elseif("${_PKG_MANAGER}" STREQUAL "pacman")
-            set(ALL_DEPS_CMD "sudo pacman -S libx11 libxkbfile xkbcommon libxcb")
-        else()
-            set(ALL_DEPS_CMD "Install the development package for ${pc_name} manually.")
+            set(_pkg "${_pacman}")
+        elseif("${_PKG_MANAGER}" STREQUAL "zypper")
+            set(_pkg "${_zypper}")
+        endif()
+
+        set(_all_cmd "Install the development package for ${_pc_name} manually.")
+        if(DEFINED DEPS_INSTALL_CMD_${_PKG_MANAGER})
+            set(_all_cmd "${DEPS_INSTALL_CMD_${_PKG_MANAGER}}")
         endif()
 
         message(FATAL_ERROR
-            "Package '${pc_name}' not found via pkg-config."
-            "\n\n"
-            "Install the missing dependency:"
-            "\n"
-            "  sudo ${_PKG_MANAGER} install ${pkg}"
-            "\n\n"
-            "Or install all dependencies at once:"
-            "\n"
-            "  ${ALL_DEPS_CMD}"
+            "Package '${_pc_name}' not found via pkg-config."
+            "\n\nInstall the missing dependency:"
+            "\n  sudo ${_PKG_MANAGER} install ${pkg}"
+            "\n\nOr install all dependencies at once:"
+            "\n  ${_all_cmd}"
         )
     endif()
-endfunction()
-
-# Check each dependency individually with clear error messages
-# _check_dep(<cmake_var> <pkg-config_name> <apt_pkg> <dnf_pkg> <pacman_pkg> <zypper_pkg>)
-_check_dep(X11           x11            "libx11-dev"              "libX11-devel"               "libx11"            "libX11-devel")
-_check_dep(XKBFILE       xkbfile        "libxkbfile-dev"          "libxkbfile-devel"           "libxkbfile"        "libxkbfile-devel")
-_check_dep(XKBCOMMON_X11 xkbcommon-x11  "libxkbcommon-x11-dev"    "xkbcommon-x11-devel"        "xkbcommon"         "xkbcommon-x11-devel")
-_check_dep(XCB           xcb            "libxcb1-dev"             "libxcb-devel"               "libxcb"            "libxcb-devel")
+endforeach()
 
 # ── Executable target (explicit sources, no GLOB) ───────────────────
 add_executable(wxkb-switch
