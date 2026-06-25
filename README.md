@@ -14,10 +14,22 @@ Reads the current XKB configuration directly — no setup required.
 
 ## Quick Start
 
+**Install from package:**
+
 ```bash
-# Install (Debian/Ubuntu)
+# Debian/Ubuntu
 sudo apt install ./wxkb-switch-*.deb
 
+# Fedora/RHEL
+sudo dnf install ./wxkb-switch-*.rpm
+
+# openSUSE
+sudo zypper install ./wxkb-switch-*.rpm
+```
+
+**Use:**
+
+```bash
 # Switch to next layout
 wxkb-switch
 
@@ -89,13 +101,14 @@ sudo make install
 
 #### Customize installation paths (optional)
 
-Shell completion scripts can be installed to custom directories via CMake variables:
+Shell completion scripts can be installed to custom directories via CMake variables.
+Defaults depend on `CMAKE_INSTALL_PREFIX` (see table below):
 
-| Variable | Default | Description |
-|----------|---------|-------------|
+| Variable | Default (with `/usr`) | Description |
+|----------|----------------------|-------------|
 | `WXKB_BASH_COMPLETION_DIR` | `/etc/bash_completion.d` | Bash completion script location |
-| `WXKB_ZSH_COMPLETION_DIR` | `${PREFIX}/share/zsh/site-functions` | Zsh completion function location |
-| `WXKB_FISH_COMPLETION_DIR` | `${PREFIX}/share/fish/vendor_completions.d` | Fish completion script location |
+| `WXKB_ZSH_COMPLETION_DIR` | `/usr/share/zsh/site-functions` | Zsh completion function location |
+| `WXKB_FISH_COMPLETION_DIR` | `/usr/share/fish/vendor_completions.d` | Fish completion script location |
 
 Example — install binary to `/opt/myapp` but completions to system directories:
 
@@ -109,6 +122,12 @@ cmake -S . -B build \
 ## Building Packages
 
 ### .deb Package (Debian/Ubuntu)
+
+**Install packaging dependencies:**
+
+```bash
+sudo apt install dpkg-dev
+```
 
 To generate your own `.deb` package from source:
 
@@ -131,6 +150,16 @@ sudo apt install ./wxkb-switch-*.deb
 ```
 
 ### .rpm Package (Fedora/RHEL/openSUSE)
+
+**Install packaging dependencies:**
+
+```bash
+# Fedora/RHEL
+sudo dnf install rpm-build
+
+# openSUSE
+sudo zypper install rpm-build
+```
 
 To generate your own `.rpm` package from source:
 
@@ -155,9 +184,6 @@ sudo dnf install ./wxkb-switch-*.rpm
 # openSUSE
 sudo zypper install ./wxkb-switch-*.rpm
 ```
-
-> **Note:** Building RPM packages requires `rpmbuild` to be installed.
-> On Fedora: `sudo dnf install rpm-build`. On RHEL: `sudo yum install rpm-build`.
 
 ## Building Packages for All Architectures
 
@@ -230,11 +256,12 @@ The `Dockerfile` in the project root contains the full build environment setup.
 | Architecture | Processor | Debian Package Arch | RPM Package Arch |
 |-------------|-----------|---------------------|------------------|
 | x86_64 (AMD64) | `x86_64` | `x86_64` | `x86_64` |
+| x86 (32-bit) | `i386` | `i386` | `i386` |
 | ARM64 (AArch64) | `aarch64` | `arm64` | `aarch64` |
+| ARMv5 | `armv5l` | `armel` | `armv5rl` |
 | ARM32 Hard Float | `armv7l` | `armhf` | `armv7hl` |
 | RISC-V 64 | `riscv64` | `riscv64` | `riscv64` |
 | PowerPC 64 LE | `ppc64le` | `ppc64el` | `ppc64le` |
-| MIPS64 LE | `mips64el` | `mips64el` | `mips64` |
 | s390x (IBM Z) | `s390x` | `s390x` | `s390x` |
 
 ## Usage
